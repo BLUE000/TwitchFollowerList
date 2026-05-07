@@ -1,6 +1,9 @@
 # 詳細設計 (Detailed Design)
 
 本ドキュメントは、要件定義および基本設計に基づき、各層の具体的なクラス設計、データ構造、および主要な処理フローを定義する。
+全体のレイヤー構造については、[基本設計書](./basic_design.md) の図1（内部アーキテクチャ図）を参照のこと。
+
+---
 
 ## 1. クラス設計 (Class Design)
 
@@ -28,44 +31,30 @@
 - **イベント**:
   - `void dropEvent(QDropEvent *event)` (リストからツリーへのDnD処理)
 
-### 1.2 Core層 (`core/`)
-**`AppController`**
-- **役割**: アプリケーション全体の制御、UIとAPIモジュールの橋渡し、操作履歴（Undo/Redo）の管理、データの状態保持。
-- **メンバ変数**:
-  - `MainWindow *mainWindow`
-  - `TwitchAuthenticator *authenticator`
-  - `TwitchApiClient *apiClient`
-  - `FileManager *fileManager`
-  - `QList<TwitchFollower> currentFollowers` (現在の全フォロワー状態)
-  - `QMap<int, QString> currentGroups` (ID -> Group Name のマッピング)
-  - `QList<ActionRecord> actionHistory` (起動時からの全操作履歴リスト)
-  - `int historyCursor` (現在のUndo/Redo位置を示すインデックス)
-- **メソッド**:
-  - `void initialize()`
-  - `void applyAction(const ActionRecord& action)`: 操作をデータモデルに適用する。
-  - `void revertAction(const ActionRecord& action)`: 操作を打ち消す（逆の操作を適用する）。
-  - `void pushAction(const ActionRecord& action)`: 新規操作を履歴に追加する。カーソル位置より未来の履歴（Redo用の履歴）がある場合はそれを切り捨て（Truncate）てから追記し、ファイルへ永続化する。
-- **スロット**:
-  - `void handleLoginRequest()`
-  - `void handleAuthCompleted(const QString& token)`
-  - `void handleCurrentUserFetched(const QString& userId)`
-  - `void handleFollowerAssigned(const QString& userId, int groupId)`
-  - `void handleUndoRequested()`
-  - `void handleRedoRequested()`
+### 1.2 Core層 (Business Logic)
+- **AppController クラス**:
+    - アプリケーション全体のステートとフローを管理。
+    - **状態管理**: 処理中フラグ（`isBusy`）を保持し、API 通信やファイル保存中は UI 層（MainWindow）の操作を無効化（`setEnabled(false)`）する。
+    - **メンバ変数**:
+      - `MainWindow *mainWindow`
+      - `TwitchAuthenticator *authenticator`
+      - `TwitchApiClient *apiClient`
+      - `FileManager *fileManager`
+      - `QList<TwitchFollower> currentFollowers`
+      - `QMap<int, QString> currentGroups`
+      - `QList<ActionRecord> actionHistory`
+      - `int historyCursor`
+    - **メソッド**:
+      - `void initialize()`
+      - `void applyAction(const ActionRecord& action)`
+      - `void revertAction(const ActionRecord& action)`
+      - `void pushAction(const ActionRecord& action)`
 
-### 1.3 API層 (`api/`)
-**`TwitchAuthenticator` & `TwitchApiClient`**
-- (役割: Twitch OAuth認証フローとHelix APIによる情報取得。変更なし)
-
-**`FileManager`**
-- **役割**: ローカルファイル (`out/` および `Config/`) の読み書き、専用エンコード処理。
-- **メソッド**:
-  - `void saveAllListDat(const QList<TwitchFollower>& followers)`: `out/AllList.dat` へ書き込み（パイプ区切りで複数ID対応）。
-  - `void saveGroupsListDat(const QMap<int, QString>& groups)`: `out/GroupsList.dat` へ書き込み。
-  - `void saveGroupListsDat(int groupId, const QString& groupName, const QList<TwitchFollower>& groupFollowers)`: `out/グループ名/Lists.dat` へ書き込み。未所属の場合は `out/未所属/Lists.dat`。
-  - `void saveActionHistory(const QList<ActionRecord>& history)`: `Config/ActionHistory.dat` へ書き込み。
-  - `QString encodeData(const QString& csvData)`: **共通暗号化 DLL (TransCipher)** を使用して暗号化し、結果を Base64 文字列として返す。
-  - `QString decodeData(const QString& encodedData)`: Base64 デコード後、**TransCipher** を使用して元の文字列へ復号する。
+### 1.3 API層 (Data & Communication)
+- **FileManager クラス**:
+    - 設定およびデータの永続化を担当。
+    - **パス解決**: Windows API (`GetModuleFileNameA`) を使用して実行ファイルのディレクトリを取得し、それを基準に `out/` および `Config/` への絶対パスを動的に決定する。
+    - **暗号化連携**: `TransCipher` ライブラリを利用。保存時にログイン中の Twitch ユーザー ID (Numeric) を取得し、内部固定キーと組み合わせて暗号化キーを生成する。
 
 ---
 
@@ -77,8 +66,10 @@
 - `QString userLogin`: ログインID
 - `QList<int> groupIds`: 所属するグループIDのリスト（複数可。要素数0の場合は「未所属」として扱う）
 
-**`ActionRecord` (struct)**
-操作履歴（Undo/Redo用）の1単位。
+### 2.2 ActionRecord (操作履歴)
+- 操作の種類、対象、および変更前後の値を保持。
+- スタック構造 (`std::deque` または `QStack`) で保持し、最新の操作が先頭に来るように管理。
+- 新規操作が行われた際、リドゥ用スタックがある場合は破棄する。
 - `enum ActionType { AssignGroup, UnassignGroup, CreateGroup, DeleteGroup }`
 - `ActionType type`
 - `QString targetUserId`
@@ -109,3 +100,31 @@
 2. `AppController` は `historyCursor` を1つ戻し、直前の `ActionRecord` に対して逆の操作（`revertAction`）をメモリ上のデータモデルに適用する。
 3. 更新された状態（未所属に戻る、フォルダが消える等）をもとに、`FileManager` 経由で関連する `.dat` ファイルをすべて上書き出力する。
 4. UIを更新する。（※全履歴データ自体は消去されずカーソルが移動しただけなので、直後にRedoが可能となる）
+
+---
+
+## 4. データセキュリティと復旧仕様
+
+### 4.1 暗号化キー生成アルゴリズム
+`TransCipher` に渡す鍵文字列は以下のルールで生成する。
+- `KeyString = [ProjectInternalSecret] + [TwitchNumericUserID]`
+- **ProjectInternalSecret**: ソースコード内に定数として保持される 32 文字以上のランダムな文字列。
+- **TwitchNumericUserID**: ログイン中のユーザーから API (`/helix/users`) 経由で取得した不変の数字 ID。
+
+### 4.2 鍵のバージョニング
+将来のセキュリティ強化に備え、保存ファイルのヘッダー領域（最初の数バイト）に `Key Version` (uint8) を記録する。
+- **Version 1**: 2026-05-07 定義のアルゴリズム。
+- アプリケーションは、読み込み時にヘッダーのバージョンを確認し、対応する内部秘密文字列を選択して復号を試みる。
+
+### 4.3 データ復旧（リカバリ）
+万が一、アプリケーション経由でデータが開けなくなった場合の救済措置。
+1. **仕様ベースの復旧**: 本設計書に記載されたアルゴリズムと内部秘密文字列を用いて、独立した復号ツール（`TransCipher` CLI 等）により平文を抽出可能とする。
+2. **開発者対応**: ユーザーから暗号化ファイルと Twitch ID の提供を受けた場合、開発者がソースコード上のアルゴリズムを用いて復号し、CSV 等で返却することを可能とする。
+
+---
+
+## 5. UI/UX 詳細
+### 5.1 処理中状態の制御
+- 通信中やファイル保存中は、`MainWindow` 自体を `setEnabled(false)` にし、マウスクリックやキーボード入力を遮断する。
+- 画面中央にスピナーまたは「処理中...」のステータスを表示し、ユーザーに待機を促す。
+- 処理終了後、速やかに `setEnabled(true)` に戻し、コントロールを返却する。
