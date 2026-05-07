@@ -1,0 +1,14 @@
+# ninja log v6
+4	89	7998365549887756	D:/prog/C++/FollowerList/build_bash_Release/CMakeFiles/cmake.verify_globs	c02cadcdc8c07429
+90	570	7998365555010740	FollowerList_autogen/timestamp	88f2ace794b7dbe0
+90	570	7998365555010740	FollowerList_autogen/mocs_compilation.cpp	88f2ace794b7dbe0
+90	570	7998365555010740	D:/prog/C++/FollowerList/build_bash_Release/FollowerList_autogen/timestamp	88f2ace794b7dbe0
+90	570	7998365555010740	D:/prog/C++/FollowerList/build_bash_Release/FollowerList_autogen/mocs_compilation.cpp	88f2ace794b7dbe0
+584	1802	7998365555686209	CMakeFiles/FollowerList.dir/api/twitch_authenticator.cpp.obj	cbc2c06e9ab2492e
+575	1938	7998365555601089	CMakeFiles/FollowerList.dir/main.cpp.obj	6b1f11c5e638530e
+586	2002	7998365555706789	CMakeFiles/FollowerList.dir/api/twitch_api_client.cpp.obj	aba255614618fe60
+573	2214	7998365555580639	CMakeFiles/FollowerList.dir/FollowerList_autogen/mocs_compilation.cpp.obj	1461c1b3acf814aa
+582	2428	7998365555664849	CMakeFiles/FollowerList.dir/api/file_manager.cpp.obj	754e4c5bc55d86d2
+577	2555	7998365555621609	CMakeFiles/FollowerList.dir/ui/mainwindow.cpp.obj	edcdaf2376ce3617
+579	3089	7998365555642501	CMakeFiles/FollowerList.dir/core/app_controller.cpp.obj	886623c56b4af741
+3089	3788	7998365580740405	D:/prog/C++/FollowerList/bin/Release/FollowerList.exe	9e40f25b906865e4

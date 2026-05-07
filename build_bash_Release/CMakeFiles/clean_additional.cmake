@@ -1,0 +1,10 @@
+# Additional clean files
+cmake_minimum_required(VERSION 3.16)
+
+if("${CONFIG}" STREQUAL "" OR "${CONFIG}" STREQUAL "Release")
+  file(REMOVE_RECURSE
+  "CMakeFiles\\FollowerList_autogen.dir\\AutogenUsed.txt"
+  "CMakeFiles\\FollowerList_autogen.dir\\ParseCache.txt"
+  "FollowerList_autogen"
+  )
+endif()

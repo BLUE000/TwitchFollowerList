@@ -1,7 +1,7 @@
 #include "app_controller.h"
 
 AppController::AppController(MainWindow *mainWindow, QObject *parent)
-    : QObject(parent), view(mainWindow), historyCursor(-1), nextGroupId(1)
+    : QObject(parent), view(mainWindow), m_isBusy(false), historyCursor(-1), nextGroupId(1)
 {
     authenticator = new TwitchAuthenticator(this);
     apiClient = new TwitchApiClient(this);
@@ -36,6 +36,7 @@ void AppController::initialize() {
 }
 
 void AppController::handleLoginRequest() {
+    setBusy(true);
     authenticator->login();
 }
 
@@ -46,6 +47,7 @@ void AppController::handleAuthCompleted(const QString& token) {
 }
 
 void AppController::handleCurrentUserFetched(const QString& userId) {
+    fileManager->setTwitchUserId(userId); // 暗号鍵の生成にIDを使用するように設定
     apiClient->fetchFollowers();
 }
 
@@ -104,6 +106,7 @@ void AppController::handleFollowersFetched(const QList<TwitchFollower>& fetchedF
     currentFollowers = newCurrentFollowers;
     updateView();
     saveAllState();
+    setBusy(false);
 }
 
 void AppController::pushAction(const ActionRecord& action) {
@@ -256,6 +259,9 @@ void AppController::updateView() {
 }
 
 void AppController::saveAllState() {
+    bool wasBusy = m_isBusy;
+    if (!wasBusy) setBusy(true);
+    
     fileManager->saveAllListDat(currentFollowers);
     fileManager->saveGroupsListDat(currentGroups);
     fileManager->saveActionHistory(actionHistory);
@@ -280,4 +286,13 @@ void AppController::saveAllState() {
         }
     }
     fileManager->saveGroupListsDat("未所属", unassigned);
+
+    if (!wasBusy) setBusy(false);
+}
+
+void AppController::setBusy(bool busy) {
+    m_isBusy = busy;
+    if (view) {
+        view->setEnabled(!busy);
+    }
 }

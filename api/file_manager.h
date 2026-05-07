@@ -12,9 +12,12 @@ class FileManager : public QObject {
 public:
     explicit FileManager(QObject *parent = nullptr);
 
+    // 暗号化設定
+    void setTwitchUserId(const QString& userId);
+
     // エンコード・デコード処理
-    static QString encodeData(const QString& csvData);
-    static QString decodeData(const QString& encodedData);
+    QString encodeData(const QString& csvData);
+    QString decodeData(const QString& encodedData);
 
     // ファイル保存処理
     bool saveAllListDat(const QList<TwitchFollower>& followers);
@@ -31,7 +34,10 @@ public:
 private:
     QString outDirPath;
     QString configDirPath;
+    QString m_twitchUserId;
 
+    QString getExecutablePath();
+    QString getDynamicKey();
     bool writeEncodedFile(const QString& filePath, const QString& csvData);
     QString readEncodedFile(const QString& filePath);
 };

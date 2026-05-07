@@ -34,6 +34,7 @@ private:
     TwitchApiClient *apiClient;
     FileManager *fileManager;
 
+    bool m_isBusy;
     QList<TwitchFollower> currentFollowers;
     QList<TwitchFollower> currentDeletedUsers; // 追加: 削除済みユーザー
     QMap<int, QString> currentGroups;
@@ -47,6 +48,7 @@ private:
     
     void updateView();
     void saveAllState();
+    void setBusy(bool busy);
 };
 
 #endif // APP_CONTROLLER_H

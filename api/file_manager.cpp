@@ -5,40 +5,58 @@
 #include <QTextStream>
 #include <QUrl>
 #include <QByteArray>
-#include <QCoreApplication>
+#include <windows.h>
 
-// 内部用暗号鍵（本来はマシン情報等から動的に生成するのが望ましい）
-const QString INTERNAL_KEY = "FollowerList_Secure_Key_2026";
+// 内部用固定シークレット（32文字以上のランダム文字列）
+const QString PROJECT_SECRET = "FL_Sec_9x7v2B_m4K_L0q9_zX1wP_R3n8_T5j6_vG4h";
 
 FileManager::FileManager(QObject *parent) : QObject(parent) {
-    // 実行ファイルの配置ディレクトリ（bin/Debugなど）から見た相対パスでoutとConfigを作成
-    outDirPath = QCoreApplication::applicationDirPath() + "/out";
-    configDirPath = QCoreApplication::applicationDirPath() + "/Config";
+    QString exePath = getExecutablePath();
+    QDir exeDir(exePath);
+    
+    outDirPath = exeDir.absoluteFilePath("out");
+    configDirPath = exeDir.absoluteFilePath("Config");
     
     QDir().mkpath(outDirPath);
     QDir().mkpath(configDirPath);
 }
 
+void FileManager::setTwitchUserId(const QString& userId) {
+    m_twitchUserId = userId;
+}
+
+QString FileManager::getExecutablePath() {
+    char path[MAX_PATH];
+    GetModuleFileNameA(NULL, path, MAX_PATH);
+    QString fullPath = QString::fromLocal8Bit(path);
+    return QFileInfo(fullPath).absolutePath();
+}
+
+QString FileManager::getDynamicKey() {
+    // [プロジェクト固定キー] + [Twitch ID]
+    return PROJECT_SECRET + m_twitchUserId;
+}
+
 QString FileManager::encodeData(const QString& csvData) {
-    // TransCipher を使用して暗号化
-    CipherResult result = CipherEngine::encrypt(csvData.toUtf8(), INTERNAL_KEY);
+    // TransCipher を使用して暗号化（動的鍵を使用）
+    CipherResult result = CipherEngine::encrypt(csvData.toUtf8(), getDynamicKey());
     if (result.isSuccess()) {
         // 保存用に Base64 形式に変換
         return result.data().toBase64();
     }
-    return QString(); // 失敗時は空（または元のデータを返す等の処理検討が必要）
+    return QString();
 }
 
 QString FileManager::decodeData(const QString& encodedData) {
     // Base64 デコードしてバイナリに戻す
     QByteArray cipherData = QByteArray::fromBase64(encodedData.toUtf8());
     
-    // TransCipher を使用して復号
-    CipherResult result = CipherEngine::decrypt(cipherData, INTERNAL_KEY);
+    // TransCipher を使用して復号（動的鍵を使用）
+    CipherResult result = CipherEngine::decrypt(cipherData, getDynamicKey());
     if (result.isSuccess()) {
         return QString::fromUtf8(result.data());
     }
-    return QString(); // 復号失敗
+    return QString();
 }
 
 bool FileManager::writeEncodedFile(const QString& filePath, const QString& csvData) {
