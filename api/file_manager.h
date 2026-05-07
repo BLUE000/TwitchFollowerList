@@ -133,6 +133,19 @@ private:
      * @return 復号後の平文データ（失敗時は空文字列）。
      */
     QString readEncodedFile(const QString& szFilePth);
+
+    // CSV フォーマット規定（フォロワー情報）
+    static constexpr int iCOL_FLW_MIN      = 4; ///< フォロワー情報の必須列数 (No, 表示名, ユーザ名, ID)
+    static constexpr int iCOL_FLW_FULL     = 5; ///< フォロワー情報の最大列数 (グループID込)
+    static constexpr int iIDX_FLW_NAME     = 1; ///< 列インデックス: 表示名
+    static constexpr int iIDX_FLW_LOGIN    = 2; ///< 列インデックス: ユーザ名
+    static constexpr int iIDX_FLW_ID       = 3; ///< 列インデックス: ユーザID
+    static constexpr int iIDX_FLW_GRP_IDS  = 4; ///< 列インデックス: グループID
+
+    // CSV フォーマット規定（グループ定義）
+    static constexpr int iCOL_GRP_MIN      = 2; ///< グループ情報の必須列数 (ID, 名前)
+    static constexpr int iIDX_GRP_ID       = 0; ///< 列インデックス: グループID
+    static constexpr int iIDX_GRP_NAME     = 1; ///< 列インデックス: グループ名
 };
 
 #endif // FILE_MANAGER_H

@@ -140,13 +140,13 @@ bool FileManager::loadAllListDat(QList<TwitchFollower>& lstFllwrs) {
         QStringList lstLns = szCsvDt.split('\n', Qt::SkipEmptyParts);
         for (const QString& szLn : lstLns) {
             QStringList lstPrts = szLn.split(',');
-            if (lstPrts.size() >= 4) {
+            if (lstPrts.size() >= iCOL_FLW_MIN) {
                 TwitchFollower oFllwr;
-                oFllwr.userName = lstPrts[1];
-                oFllwr.userLogin = lstPrts[2];
-                oFllwr.userId = lstPrts[3];
-                if (lstPrts.size() >= 5) {
-                    QStringList lstGids = lstPrts[4].split('|', Qt::SkipEmptyParts);
+                oFllwr.userName = lstPrts[iIDX_FLW_NAME];
+                oFllwr.userLogin = lstPrts[iIDX_FLW_LOGIN];
+                oFllwr.userId = lstPrts[iIDX_FLW_ID];
+                if (lstPrts.size() >= iCOL_FLW_FULL) {
+                    QStringList lstGids = lstPrts[iIDX_FLW_GRP_IDS].split('|', Qt::SkipEmptyParts);
                     for (const QString& szGid : lstGids) {
                         oFllwr.groupIds.append(szGid.toInt());
                     }
@@ -176,8 +176,8 @@ bool FileManager::loadGroupsListDat(QMap<int, QString>& mapGrps) {
         QStringList lstLns = szCsvDt.split('\n', Qt::SkipEmptyParts);
         for (const QString& szLn : lstLns) {
             QStringList lstPrts = szLn.split(',');
-            if (lstPrts.size() >= 2) {
-                mapGrps.insert(lstPrts[0].toInt(), lstPrts[1]);
+            if (lstPrts.size() >= iCOL_GRP_MIN) {
+                mapGrps.insert(lstPrts[iIDX_GRP_ID].toInt(), lstPrts[iIDX_GRP_NAME]);
             } else {
                 // 不正な行
             }
@@ -200,13 +200,13 @@ bool FileManager::loadDeletedUserDat(QList<TwitchFollower>& lstDltdUsrs) {
         QStringList lstLns = szCsvDt.split('\n', Qt::SkipEmptyParts);
         for (const QString& szLn : lstLns) {
             QStringList lstPrts = szLn.split(',');
-            if (lstPrts.size() >= 4) {
+            if (lstPrts.size() >= iCOL_FLW_MIN) {
                 TwitchFollower oFllwr;
-                oFllwr.userName = lstPrts[1];
-                oFllwr.userLogin = lstPrts[2];
-                oFllwr.userId = lstPrts[3];
-                if (lstPrts.size() >= 5) {
-                    QStringList lstGids = lstPrts[4].split('|', Qt::SkipEmptyParts);
+                oFllwr.userName = lstPrts[iIDX_FLW_NAME];
+                oFllwr.userLogin = lstPrts[iIDX_FLW_LOGIN];
+                oFllwr.userId = lstPrts[iIDX_FLW_ID];
+                if (lstPrts.size() >= iCOL_FLW_FULL) {
+                    QStringList lstGids = lstPrts[iIDX_FLW_GRP_IDS].split('|', Qt::SkipEmptyParts);
                     for (const QString& szGid : lstGids) {
                         oFllwr.groupIds.append(szGid.toInt());
                     }
