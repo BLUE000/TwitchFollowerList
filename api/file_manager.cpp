@@ -138,7 +138,8 @@ bool FileManager::loadAllListDat(QList<TwitchFollower>& lstFllwrs) {
     } else {
         lstFllwrs.clear();
         QStringList lstLns = szCsvDt.split('\n', Qt::SkipEmptyParts);
-        for (const QString& szLn : lstLns) {
+        for (int i = 1; i < lstLns.size(); ++i) {
+            const QString& szLn = lstLns[i];
             QStringList lstPrts = szLn.split(',');
             if (lstPrts.size() >= iCOL_FLW_MIN) {
                 TwitchFollower oFllwr;
@@ -174,7 +175,8 @@ bool FileManager::loadGroupsListDat(QMap<int, QString>& mapGrps) {
     } else {
         mapGrps.clear();
         QStringList lstLns = szCsvDt.split('\n', Qt::SkipEmptyParts);
-        for (const QString& szLn : lstLns) {
+        for (int i = 1; i < lstLns.size(); ++i) {
+            const QString& szLn = lstLns[i];
             QStringList lstPrts = szLn.split(',');
             if (lstPrts.size() >= iCOL_GRP_MIN) {
                 mapGrps.insert(lstPrts[iIDX_GRP_ID].toInt(), lstPrts[iIDX_GRP_NAME]);
@@ -198,7 +200,8 @@ bool FileManager::loadDeletedUserDat(QList<TwitchFollower>& lstDltdUsrs) {
     } else {
         lstDltdUsrs.clear();
         QStringList lstLns = szCsvDt.split('\n', Qt::SkipEmptyParts);
-        for (const QString& szLn : lstLns) {
+        for (int i = 1; i < lstLns.size(); ++i) {
+            const QString& szLn = lstLns[i];
             QStringList lstPrts = szLn.split(',');
             if (lstPrts.size() >= iCOL_FLW_MIN) {
                 TwitchFollower oFllwr;
@@ -228,7 +231,7 @@ bool FileManager::loadDeletedUserDat(QList<TwitchFollower>& lstDltdUsrs) {
  * @return 成功なら true。
  */
 bool FileManager::saveDeletedUserDat(const QList<TwitchFollower>& lstDltdUsrs) {
-    QString szCsv;
+    QString szCsv = szHDR_FLW;
     for (int i = 0; i < lstDltdUsrs.size(); ++i) {
         const auto& oFllwr = lstDltdUsrs[i];
         QStringList lstGids;
@@ -251,9 +254,7 @@ bool FileManager::saveDeletedUserDat(const QList<TwitchFollower>& lstDltdUsrs) {
  * @return 成功なら true。
  */
 bool FileManager::saveAllListDat(const QList<TwitchFollower>& lstFllwrs) {
-    QString szCsvDt;
-    QTextStream oStrm(&szCsvDt);
-    szCsvDt += "No,表示名,ユーザ名,ユーザID,グループID\n";
+    QString szCsvDt = szHDR_FLW;
     
     int iNo = 1;
     for (const auto& oFllwr : lstFllwrs) {
@@ -280,8 +281,7 @@ bool FileManager::saveAllListDat(const QList<TwitchFollower>& lstFllwrs) {
  * @return 成功なら true。
  */
 bool FileManager::saveGroupsListDat(const QMap<int, QString>& mapGrps) {
-    QString szCsvDt;
-    szCsvDt += "グループID,グループ名\n";
+    QString szCsvDt = szHDR_GRP;
     
     for (auto it = mapGrps.constBegin(); it != mapGrps.constEnd(); ++it) {
         szCsvDt += QString("%1,%2\n").arg(it.key()).arg(it.value());
@@ -300,8 +300,7 @@ bool FileManager::saveGroupListsDat(const QString& szGrpNm, const QList<TwitchFo
     QString szTgtDir = szOutDirPth + "/" + szGrpNm;
     QDir().mkpath(szTgtDir);
     
-    QString szCsvDt;
-    szCsvDt += "No,表示名,ユーザ名,ユーザID,グループID\n";
+    QString szCsvDt = szHDR_FLW;
     
     int iNo = 1;
     for (const auto& oFllwr : lstGrpFllwrs) {
