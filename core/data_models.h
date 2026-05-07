@@ -26,7 +26,8 @@ struct ActionRecord {
     ActionType type;
     QString targetUserId;  // 対象のフォロワーID（グループ作成・削除時は空）
     int targetGroupId;     // 対象のグループID
-    QString targetGroupName; // 対象のグループ名（作成・削除時に主に使用）
+    QString targetGroupName;                ///< 対象グループ名（作成・削除時）
+    QList<int> prevGroupIds;                ///< 操作前のグループ ID リスト（解除時 Undo 用）
 };
 
 #endif // DATA_MODELS_H

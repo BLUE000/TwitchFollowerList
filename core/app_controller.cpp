@@ -5,7 +5,12 @@
 
 #include "app_controller.h"
 #include <QTimer>
+#include <QFileDialog>
+#include <QDateTime>
+#include <QTextStream>
+#include <QDir>
 #include <QMessageBox>
+#include <QRegularExpression>
 
 /**
  * @brief コンストラクタ。メンバの初期化を行う。
@@ -13,7 +18,7 @@
  * @param pParent 親オブジェクト。
  */
 AppController::AppController(MainWindow *pMainWindow, QObject *pParent)
-    : QObject(pParent), pView(pMainWindow), bIsBsy(false), iHstryCrsr(-1), iNxtGrpId(1)
+    : QObject(pParent), pView(pMainWindow), bIsBsy(false), iHstryCrsr(-1), iNxtGrpId(1), iSlctdGrpId(FileManager::iGRP_ID_ALL)
 {
     pAuthntctr = new TwitchAuthenticator(this);
     pApiClient = new TwitchApiClient(this);
@@ -33,6 +38,8 @@ void AppController::initialize() {
     connect(pView, &MainWindow::groupDeleted, this, &AppController::handleGroupDeleted);
     connect(pView, &MainWindow::undoRequested, this, &AppController::handleUndoRequested);
     connect(pView, &MainWindow::redoRequested, this, &AppController::handleRedoRequested);
+    connect(pView, &MainWindow::groupSelected, this, &AppController::handleGroupSelected);
+    connect(pView, &MainWindow::outputRequested, this, &AppController::handleOutputRequested);
 
     connect(pAuthntctr, &TwitchAuthenticator::authCompleted, this, &AppController::handleAuthCompleted);
     connect(pApiClient, &TwitchApiClient::currentUserFetched, this, &AppController::handleCurrentUserFetched);
@@ -51,7 +58,7 @@ void AppController::initialize() {
     }
     
     pView->setGroups(mapCrntGrps);
-    pView->setFollowers(lstCrntFllwrs);
+    pView->setFollowers(lstCrntFllwrs, mapCrntGrps);
     pView->setUndoRedoEnabled(false, false);
 }
 
@@ -180,7 +187,11 @@ void AppController::applyAction(const ActionRecord& oActn) {
     } else if (oActn.type == ActionRecord::UnassignGroup) {
         for (auto& oF : lstCrntFllwrs) {
             if (oF.userId == oActn.targetUserId) {
-                oF.groupIds.removeAll(oActn.targetGroupId);
+                if (oActn.targetGroupId == -1) {
+                    oF.groupIds.clear();
+                } else {
+                    oF.groupIds.removeAll(oActn.targetGroupId);
+                }
                 break;
             } else { /* skip */ }
         }
@@ -206,9 +217,7 @@ void AppController::revertAction(const ActionRecord& oActn) {
     } else if (oActn.type == ActionRecord::UnassignGroup) {
         for (auto& oF : lstCrntFllwrs) {
             if (oF.userId == oActn.targetUserId) {
-                if (!oF.groupIds.contains(oActn.targetGroupId)) {
-                    oF.groupIds.append(oActn.targetGroupId);
-                } else { /* skip */ }
+                oF.groupIds = oActn.prevGroupIds;
                 break;
             } else { /* skip */ }
         }
@@ -264,22 +273,27 @@ void AppController::handleFollowerAssigned(const QString& szUsrId, int iGrpId) {
  * @param iGrpId グループ ID。
  */
 void AppController::handleFollowerUnassigned(const QString& szUsrId, int iGrpId) {
+    QList<int> lstPrev;
     bool bFound = false;
     for (const auto& oF : lstCrntFllwrs) {
-        if (oF.userId == szUsrId && oF.groupIds.contains(iGrpId)) {
-            bFound = true;
-            break;
-        } else { /* skip */ }
+        if (oF.userId == szUsrId) {
+            lstPrev = oF.groupIds;
+            if (iGrpId == -1) {
+                if (!oF.groupIds.isEmpty()) bFound = true;
+            } else if (oF.groupIds.contains(iGrpId)) {
+                bFound = true;
+            }
+            if (bFound) break;
+        }
     }
-    if (!bFound) {
-        return;
-    } else {
-        ActionRecord oAct;
-        oAct.type = ActionRecord::UnassignGroup;
-        oAct.targetUserId = szUsrId;
-        oAct.targetGroupId = iGrpId;
-        pushAction(oAct);
-    }
+    if (!bFound) return;
+
+    ActionRecord oAct;
+    oAct.type = ActionRecord::UnassignGroup;
+    oAct.targetUserId = szUsrId;
+    oAct.targetGroupId = iGrpId;
+    oAct.prevGroupIds = lstPrev; // Undo 用に現在の所属を記録
+    pushAction(oAct);
 }
 
 /**
@@ -318,10 +332,102 @@ void AppController::handleTimeout() {
 }
 
 /**
+ * @brief グループ選択変更時の処理。
+ * @param iGrpId 選択されたグループ ID。
+ */
+void AppController::handleGroupSelected(int iGrpId) {
+    iSlctdGrpId = iGrpId;
+    updateView();
+}
+
+/**
+ * @brief エクスポート（Output）要求をハンドルする。
+ */
+void AppController::handleOutputRequested() {
+    QString szBaseDir = QFileDialog::getExistingDirectory(pView, "保存先フォルダを選択", QDir::homePath());
+    if (szBaseDir.isEmpty()) return;
+
+    QString szTs = QDateTime::currentDateTime().toString("yyyy-MM-dd_hh-mm-ss");
+    QDir oBase(szBaseDir);
+    if (!oBase.mkdir(szTs)) {
+        QMessageBox::critical(pView, "エラー", "フォルダの作成に失敗しました。");
+        return;
+    }
+    QDir oTarget(oBase.absoluteFilePath(szTs));
+
+    // 全グループのリストを作成（システム予約＋ユーザー定義）
+    QMap<int, QString> mapAllGrps = mapCrntGrps;
+    mapAllGrps.insert(FileManager::iGRP_ID_ALL, "すべて");
+    mapAllGrps.insert(FileManager::iGRP_ID_UNASSIGNED, "未所属");
+    mapAllGrps.insert(FileManager::iGRP_ID_DELETED, "削除済みユーザー");
+
+    for (auto it = mapAllGrps.constBegin(); it != mapAllGrps.constEnd(); ++it) {
+        int iGid = it.key();
+        QString szGNm = it.value();
+        
+        QList<TwitchFollower> lstSub;
+        if (iGid == FileManager::iGRP_ID_ALL) {
+            lstSub = lstCrntFllwrs;
+        } else if (iGid == FileManager::iGRP_ID_UNASSIGNED) {
+            for (const auto& oF : lstCrntFllwrs) if (oF.groupIds.isEmpty()) lstSub << oF;
+        } else if (iGid == FileManager::iGRP_ID_DELETED) {
+            lstSub = lstCrntDltdUsrs;
+        } else {
+            for (const auto& oF : lstCrntFllwrs) if (oF.groupIds.contains(iGid)) lstSub << oF;
+        }
+
+        // CSV 書き出し
+        QString szFn = szGNm.trimmed().replace(QRegularExpression("[\\\\/:*?\"<>|]"), "_") + ".csv";
+        QFile oFile(oTarget.absoluteFilePath(szFn));
+        if (oFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream oOut(&oFile);
+            oOut.setEncoding(QStringConverter::Utf8);
+            oOut.setGenerateByteOrderMark(true); // Excel 用に BOM を付与
+
+            oOut << "表示名,ユーザー名,ユーザーID,グループ\n";
+            for (const auto& oF : lstSub) {
+                QStringList lstGNms;
+                for (int iGid : oF.groupIds) {
+                    if (mapCrntGrps.contains(iGid)) lstGNms << mapCrntGrps.value(iGid);
+                    else if (iGid == FileManager::iGRP_ID_UNASSIGNED) lstGNms << "未所属";
+                }
+                QString szGNms = lstGNms.join(", ");
+                oOut << QString("\"%1\",\"%2\",\"'%3\",\"%4\"\n")
+                            .arg(oF.userName, oF.userLogin, oF.userId, szGNms);
+            }
+            oFile.close();
+        }
+    }
+
+    QMessageBox::information(pView, "完了", "エクスポートが完了しました。\n" + oTarget.absolutePath());
+}
+
+/**
  * @brief UI の表示内容を最新データでリロードする。
  */
 void AppController::updateView() {
-    pView->setFollowers(lstCrntFllwrs);
+    QList<TwitchFollower> lstFiltered;
+    
+    if (iSlctdGrpId == FileManager::iGRP_ID_ALL) {
+        lstFiltered = lstCrntFllwrs;
+    } else if (iSlctdGrpId == FileManager::iGRP_ID_UNASSIGNED) {
+        for (const auto& oF : lstCrntFllwrs) {
+            if (oF.groupIds.isEmpty()) {
+                lstFiltered.append(oF);
+            }
+        }
+    } else if (iSlctdGrpId == FileManager::iGRP_ID_DELETED) {
+        lstFiltered = lstCrntDltdUsrs;
+    } else {
+        // ユーザー指定のグループ ID でフィルタリング
+        for (const auto& oF : lstCrntFllwrs) {
+            if (oF.groupIds.contains(iSlctdGrpId)) {
+                lstFiltered.append(oF);
+            }
+        }
+    }
+    
+    pView->setFollowers(lstFiltered, mapCrntGrps);
     pView->setGroups(mapCrntGrps);
     
     bool bCanWnd = (iHstryCrsr >= 0);

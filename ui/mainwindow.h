@@ -16,6 +16,7 @@ namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
 
 class QStandardItemModel;
+class QPushButton;
 
 /**
  * @class MainWindow
@@ -46,7 +47,7 @@ public:
      * @brief フォロワーリストを UI に反映する。
      * @param lstFllwrs 表示対象のフォロワーリスト。
      */
-    void setFollowers(const QList<TwitchFollower>& lstFllwrs);
+    void setFollowers(const QList<TwitchFollower>& lstFllwrs, const QMap<int, QString>& mapGrps);
 
     /**
      * @brief グループ一覧を UI に反映する。
@@ -60,6 +61,11 @@ public:
      * @param bCanRd Redo 可能なら true。
      */
     void setUndoRedoEnabled(bool bCanWnd, bool bCanRd);
+
+    /**
+     * @brief イベントフィルター。ドラッグ＆ドロップ等のイベントを捕捉する。
+     */
+    bool eventFilter(QObject *obj, QEvent *event) override;
 
 signals:
     /**
@@ -102,6 +108,17 @@ signals:
      * @brief Redo 要求のシグナル。
      */
     void redoRequested();
+ 
+    /**
+     * @brief Output 要求のシグナル。
+     */
+    void outputRequested();
+
+    /**
+     * @brief グループ選択変更のシグナル。
+     * @param iGrpId 選択されたグループ ID。
+     */
+    void groupSelected(int iGrpId);
 
 private slots:
     void onLoginButtonClicked();
@@ -109,11 +126,15 @@ private slots:
     void onDeleteGroupButtonClicked();
     void onUndoButtonClicked();
     void onRedoButtonClicked();
+    void onGroupTreeClicked(const QModelIndex& index);
+    void onFollowerListContextMenu(const QPoint& pos);
+    void onOutputButtonClicked();
 
 private:
     Ui::MainWindow *pUi;                    ///< UI デザインへのポインタ
     QStandardItemModel *pMdlFllwr;         ///< フォロワー表示用モデル
     QStandardItemModel *pMdlGrp;           ///< グループ表示用モデル
+    QPushButton *pBtnOutput;               ///< Output ボタン
 
     /**
      * @brief UI 要素の初期設定を行う。

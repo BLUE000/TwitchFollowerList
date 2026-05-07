@@ -29,6 +29,13 @@ FileManager::FileManager(QObject *pParent) : QObject(pParent) {
     
     QDir().mkpath(szOutDirPth);
     QDir().mkpath(szCnfgDirPth);
+
+    // 保存されているユーザー ID をロード
+    QFile oFile(szCnfgDirPth + "/config.ini");
+    if (oFile.open(QIODevice::ReadOnly)) {
+        szTwtchUsrId = oFile.readAll().trimmed();
+        oFile.close();
+    }
 }
 
 /**
@@ -37,6 +44,13 @@ FileManager::FileManager(QObject *pParent) : QObject(pParent) {
  */
 void FileManager::setTwitchUserId(const QString& szUsrId) {
     szTwtchUsrId = szUsrId;
+    
+    // ID を設定ファイルに保存
+    QFile oFile(szCnfgDirPth + "/config.ini");
+    if (oFile.open(QIODevice::WriteOnly)) {
+        oFile.write(szUsrId.toUtf8());
+        oFile.close();
+    }
 }
 
 /**

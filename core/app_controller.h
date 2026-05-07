@@ -99,6 +99,17 @@ public slots:
      */
     void handleTimeout();
 
+    /**
+     * @brief グループ選択変更時の処理。
+     * @param iGrpId 選択されたグループ ID。
+     */
+    void handleGroupSelected(int iGrpId);
+
+    /**
+     * @brief ファイル出力要求時の処理。
+     */
+    void handleOutputRequested();
+
 private:
     MainWindow *pView;                    ///< メインウィンドウへのポインタ
     TwitchAuthenticator *pAuthntctr;      ///< 認証ハンドラ
@@ -113,6 +124,7 @@ private:
     QList<ActionRecord> lstActnHstry;     ///< 操作履歴
     int iHstryCrsr;                       ///< 履歴カーソル位置
     int iNxtGrpId;                        ///< 次に発行するグループ ID
+    int iSlctdGrpId;                      ///< 現在 UI で選択されているグループ ID
 
     /**
      * @brief アクションを履歴に追加し、適用する。

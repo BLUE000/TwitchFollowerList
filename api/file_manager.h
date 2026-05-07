@@ -19,6 +19,11 @@
 class FileManager : public QObject {
     Q_OBJECT
 public:
+    // システム予約グループ ID
+    static constexpr int iGRP_ID_ALL        = -1;
+    static constexpr int iGRP_ID_UNASSIGNED = -2;
+    static constexpr int iGRP_ID_DELETED    = -3;
+
     /**
      * @brief コンストラクタ。
      * @param pParent 親オブジェクト。
@@ -146,6 +151,7 @@ private:
     static constexpr int iCOL_GRP_MIN      = 2; ///< グループ情報の必須列数 (ID, 名前)
     static constexpr int iIDX_GRP_ID       = 0; ///< 列インデックス: グループID
     static constexpr int iIDX_GRP_NAME     = 1; ///< 列インデックス: グループ名
+
 
     // CSV 見出し文字列
     static constexpr const char* szHDR_FLW = "No,表示名,ユーザ名,ユーザID,グループID\n";
