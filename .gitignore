@@ -1,0 +1,40 @@
+# Build directories
+build/
+build_cmd/
+build_bash_*/
+.qtcreator/
+*.user
+*.user.*
+CMakeCache.txt
+*.code-workspace
+
+# Intermediate files
+*.o
+*.obj
+*.a
+*.lib
+*.idb
+*.pdb
+
+# Debug binaries
+bin/Debug/
+
+# --- Distribution (Release) ---
+# We WANT to include Release binaries and DLLs as requested
+!bin/Release/
+
+# Data and Config
+out/AllList.dat
+out/GroupsList.dat
+out/*/Lists.dat
+Config/ActionHistory.dat
+DeletedUser.dat
+*.log
+
+# AI/WIP files (Excluded as requested)
+WIP_STATE.md
+.ai_rules_local.md
+
+# Machine specific scripts
+build.bat
+build.sh
