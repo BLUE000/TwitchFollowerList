@@ -1,0 +1,12 @@
+#ifndef TRANS_CIPHER_EXPORT_H
+#define TRANS_CIPHER_EXPORT_H
+
+#include <QtCore/qglobal.h>
+
+#if defined(TRANSCIPHER_LIBRARY)
+#  define TRANSCIPHER_EXPORT Q_DECL_EXPORT
+#else
+#  define TRANSCIPHER_EXPORT Q_DECL_IMPORT
+#endif
+
+#endif // TRANS_CIPHER_EXPORT_H
