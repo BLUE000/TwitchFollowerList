@@ -14,7 +14,7 @@
  * @param pParent 親オブジェクト。
  */
 TwitchAuthenticator::TwitchAuthenticator(QObject *pParent)
-    : QObject(pParent), szClntId("gp762nuuoqcoxypju8c569th9wz7q5") // Example Client ID
+    : QObject(pParent), szClntId("lfyil72vhg1s7baymtguh4g06h93qb"), szRdrctUri("http://localhost:8080")
 {
     pTcpSrvr = new QTcpServer(this);
     connect(pTcpSrvr, &QTcpServer::newConnection, this, &TwitchAuthenticator::onNewConnection);
@@ -31,34 +31,52 @@ void TwitchAuthenticator::login() {
     }
 
     QString szUrl = QString("https://id.twitch.tv/oauth2/authorize"
-                          "?client_id=%1"
-                          "&redirect_uri=http://localhost:8080"
-                          "&response_type=token"
-                          "&scope=user:read:follows").arg(szClntId);
+                            "?client_id=%1"
+                            "&redirect_uri=%2"
+                            "&response_type=token"
+                            "&scope=moderator:read:followers")
+                    .arg(szClntId)
+                    .arg(szRdrctUri);
     
     QDesktopServices::openUrl(QUrl(szUrl));
 }
 
-/**
- * @brief ブラウザからのリダイレクトをハンドルし、フラグメントからトークンを抽出する。
- * 注意：実際の実装では HTML ファイルでフラグメントをクエリに変換して送信する等の処理が必要。
- * ここではモック的な実装とする。
- */
 void TwitchAuthenticator::onNewConnection() {
     QTcpSocket *pSckt = pTcpSrvr->nextPendingConnection();
     if (pSckt) {
         connect(pSckt, &QTcpSocket::readyRead, [this, pSckt]() {
-            QString szReq = pSckt->readAll();
-            // 実際はここで URL フラグメント (#access_token=...) を取得するロジックが必要
-            // 簡易実装としてダミーのトークンを発行
-            emit authCompleted("mock_access_token_12345");
+            QByteArray oRawReq = pSckt->readAll();
+            QString szReq = QString::fromUtf8(oRawReq);
             
             QTextStream oRes(pSckt);
-            oRes << "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n"
-                 << "<html><body><h1>認証完了</h1><p>ブラウザを閉じてアプリに戻ってください。</p></body></html>";
+            oRes.setEncoding(QStringConverter::Utf8);
+
+            if (szReq.contains("GET /token")) {
+                // 2回目：JS から送られてきたトークンを抽出
+                int iIdx = szReq.indexOf("access_token=");
+                if (iIdx != -1) {
+                    QString szTkn = szReq.mid(iIdx + 13).split(' ').first().split('&').first();
+                    emit authCompleted(szTkn);
+                }
+
+                oRes << "HTTP/1.1 200 OK\r\n"
+                     << "Content-Type: text/html; charset=UTF-8\r\n"
+                     << "Connection: close\r\n\r\n"
+                     << "<html><body style='text-align:center;padding-top:50px;font-family:sans-serif;'>"
+                     << "<h1>認証完了！</h1><p>アプリに戻って確認してください。</p>"
+                     << "</body></html>";
+            } else {
+                // 1回目：フラグメント（#）をクエリ（?）に変換して再送させる JS を返す
+                oRes << "HTTP/1.1 200 OK\r\n"
+                     << "Content-Type: text/html; charset=UTF-8\r\n"
+                     << "Connection: close\r\n\r\n"
+                     << "<html><script>"
+                     << "if(location.hash){ location.href='/token?'+location.hash.substring(1); }"
+                     << "</script><body>認証中...</body></html>";
+            }
+            oRes.flush();
             pSckt->disconnectFromHost();
         });
-    } else {
-        // No socket
+        connect(pSckt, &QTcpSocket::disconnected, pSckt, &QTcpSocket::deleteLater);
     }
 }

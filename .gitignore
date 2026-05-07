@@ -4,10 +4,14 @@ bin/
 out/
 Config/
 build_cmd/
+build_bash_Debug/
+build_bash_Release/
 
-# Qt
+# Qt / IDE
 *.user
 *.autosave
+.qtcreator/
+*.code-workspace
 
 # MSVC
 .vs/
@@ -18,6 +22,10 @@ build_cmd/
 # Log files
 *.log
 CipherLog.txt
+
+# AI Files
+.ai_rules_local.md
+WIP_STATE.md
 
 # External Libraries (Keep binaries in Lib)
 !Lib/TransCipher/lib/*.dll

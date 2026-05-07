@@ -43,6 +43,7 @@ private slots:
 private:
     QTcpServer *pTcpSrvr; ///< コールバック受信用サーバー
     QString szClntId;    ///< Twitch Client ID
+    QString szRdrctUri;  ///< Redirect URI
 };
 
 #endif // TWITCH_AUTHENTICATOR_H

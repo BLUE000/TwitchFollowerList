@@ -56,17 +56,30 @@ signals:
 
 private slots:
     void onCurrentUserReply(QNetworkReply *pRply);
+
+    /**
+     * @brief フォロワー取得レスポンスのパース。
+     * @param pRply ネットワークリプライ。
+     */
     void onFollowersReply(QNetworkReply *pRply);
+
+    /**
+     * @brief 次のページのフォロワーを取得する。
+     * @param szCursor カーソル。
+     */
+    void fetchNextFollowersPage(const QString& szCursor);
 
 private:
     QNetworkAccessManager *pNtwrkMngr; ///< ネットワークアクセス管理
     QString szAccsTkn;                 ///< アクセストークン
     QString szClntId;                  ///< Twitch Client ID
     QString szCrntUsrId;               ///< 取得した自ユーザー ID
+    QList<TwitchFollower> lstAllFllwrs; ///< 取得中の全フォロワーリスト
 
     // API エンドポイント URL
     static constexpr const char* szURL_USERS     = "https://api.twitch.tv/helix/users";
-    static constexpr const char* szURL_FOLLOWERS = "https://api.twitch.tv/helix/channels/followers?broadcaster_id=%1";
+    static constexpr const char* szURL_FOLLOWERS = "https://api.twitch.tv/helix/channels/followers?broadcaster_id=%1&first=100";
+    static constexpr const char* szURL_FOLLOWERS_NEXT = "https://api.twitch.tv/helix/channels/followers?broadcaster_id=%1&first=100&after=%2";
 
     // JSON キー
     static constexpr const char* szJS_DATA       = "data";
@@ -74,6 +87,8 @@ private:
     static constexpr const char* szJS_USR_ID     = "user_id";
     static constexpr const char* szJS_USR_LGN    = "user_login";
     static constexpr const char* szJS_USR_NM     = "user_name";
+    static constexpr const char* szJS_PAGINATION = "pagination";
+    static constexpr const char* szJS_CURSOR     = "cursor";
 
     // HTTP ヘッダー
     static constexpr const char* szHDR_AUTH      = "Authorization";

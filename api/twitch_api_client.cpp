@@ -12,7 +12,7 @@
  * @param pParent 親オブジェクト。
  */
 TwitchApiClient::TwitchApiClient(QObject *pParent)
-    : QObject(pParent), szClntId("gp762nuuoqcoxypju8c569th9wz7q5")
+    : QObject(pParent), szClntId("lfyil72vhg1s7baymtguh4g06h93qb")
 {
     pNtwrkMngr = new QNetworkAccessManager(this);
 }
@@ -46,19 +46,33 @@ void TwitchApiClient::fetchCurrentUser() {
 void TwitchApiClient::fetchFollowers() {
     if (szCrntUsrId.isEmpty()) {
         return;
-    } else {
-        // Helix API: Get Channel Followers
-        QString szUrl = QString(szURL_FOLLOWERS).arg(szCrntUsrId);
-        QNetworkRequest oReq;
-        oReq.setUrl(QUrl(szUrl));
-        oReq.setRawHeader(szHDR_AUTH, szHDR_BEARER + szAccsTkn.toUtf8());
-        oReq.setRawHeader(szHDR_CLNT_ID, szClntId.toUtf8());
-
-        QNetworkReply *pRply = pNtwrkMngr->get(oReq);
-        connect(pRply, &QNetworkReply::finished, [this, pRply]() {
-            onFollowersReply(pRply);
-        });
     }
+    
+    lstAllFllwrs.clear();
+    fetchNextFollowersPage("");
+}
+
+/**
+ * @brief 指定されたカーソルを使用して次のページのフォロワーを取得する内部関数。
+ * @param szCursor ページネーション用カーソル（空なら初回）。
+ */
+void TwitchApiClient::fetchNextFollowersPage(const QString& szCursor) {
+    QString szUrl;
+    if (szCursor.isEmpty()) {
+        szUrl = QString(szURL_FOLLOWERS).arg(szCrntUsrId);
+    } else {
+        szUrl = QString(szURL_FOLLOWERS_NEXT).arg(szCrntUsrId).arg(szCursor);
+    }
+    
+    QNetworkRequest oReq;
+    oReq.setUrl(QUrl(szUrl));
+    oReq.setRawHeader(szHDR_AUTH, szHDR_BEARER + szAccsTkn.toUtf8());
+    oReq.setRawHeader(szHDR_CLNT_ID, szClntId.toUtf8());
+
+    QNetworkReply *pRply = pNtwrkMngr->get(oReq);
+    connect(pRply, &QNetworkReply::finished, [this, pRply]() {
+        onFollowersReply(pRply);
+    });
 }
 
 /**
@@ -87,7 +101,6 @@ void TwitchApiClient::onCurrentUserReply(QNetworkReply *pRply) {
  */
 void TwitchApiClient::onFollowersReply(QNetworkReply *pRply) {
     if (pRply->error() == QNetworkReply::NoError) {
-        QList<TwitchFollower> lstFllwrs;
         QByteArray oDt = pRply->readAll();
         QJsonDocument oDoc = QJsonDocument::fromJson(oDt);
         QJsonObject oObj = oDoc.object();
@@ -99,11 +112,19 @@ void TwitchApiClient::onFollowersReply(QNetworkReply *pRply) {
             oFllwr.userId = oF[szJS_USR_ID].toString();
             oFllwr.userLogin = oF[szJS_USR_LGN].toString();
             oFllwr.userName = oF[szJS_USR_NM].toString();
-            lstFllwrs.append(oFllwr);
+            lstAllFllwrs.append(oFllwr);
         }
-        emit followersFetched(lstFllwrs);
+
+        // 次のページがあるか確認
+        QString szCursor = oObj[szJS_PAGINATION].toObject()[szJS_CURSOR].toString();
+        if (!szCursor.isEmpty() && !oArr.isEmpty()) {
+            fetchNextFollowersPage(szCursor);
+        } else {
+            emit followersFetched(lstAllFllwrs);
+        }
     } else {
-        // Error handling
+        // Error
+        emit followersFetched(lstAllFllwrs);
     }
     pRply->deleteLater();
 }
