@@ -132,7 +132,7 @@ QString FileManager::readEncodedFile(const QString& szFilePth) {
  * @return 成功なら true。
  */
 bool FileManager::loadAllListDat(QList<TwitchFollower>& lstFllwrs) {
-    QString szCsvDt = readEncodedFile(szOutDirPth + "/AllList.dat");
+    QString szCsvDt = readEncodedFile(szOutDirPth + "/" + szFN_ALL_LST);
     if (szCsvDt.isEmpty()) {
         return false;
     } else {
@@ -169,7 +169,7 @@ bool FileManager::loadAllListDat(QList<TwitchFollower>& lstFllwrs) {
  * @return 成功なら true。
  */
 bool FileManager::loadGroupsListDat(QMap<int, QString>& mapGrps) {
-    QString szCsvDt = readEncodedFile(szOutDirPth + "/GroupsList.dat");
+    QString szCsvDt = readEncodedFile(szOutDirPth + "/" + szFN_GRP_LST);
     if (szCsvDt.isEmpty()) {
         return false;
     } else {
@@ -194,7 +194,7 @@ bool FileManager::loadGroupsListDat(QMap<int, QString>& mapGrps) {
  * @return 成功なら true。
  */
 bool FileManager::loadDeletedUserDat(QList<TwitchFollower>& lstDltdUsrs) {
-    QString szCsvDt = readEncodedFile(szOutDirPth + "/DeletedUser.dat");
+    QString szCsvDt = readEncodedFile(szOutDirPth + "/" + szFN_DLTD_USR);
     if (szCsvDt.isEmpty()) {
         return false;
     } else {
@@ -245,7 +245,7 @@ bool FileManager::saveDeletedUserDat(const QList<TwitchFollower>& lstDltdUsrs) {
                  .arg(oFllwr.userId)
                  .arg(lstGids.join("|"));
     }
-    return writeEncodedFile(szOutDirPth + "/DeletedUser.dat", szCsv);
+    return writeEncodedFile(szOutDirPth + "/" + szFN_DLTD_USR, szCsv);
 }
 
 /**
@@ -272,7 +272,7 @@ bool FileManager::saveAllListDat(const QList<TwitchFollower>& lstFllwrs) {
                    .arg(szGidsCol);
     }
     
-    return writeEncodedFile(szOutDirPth + "/AllList.dat", szCsvDt);
+    return writeEncodedFile(szOutDirPth + "/" + szFN_ALL_LST, szCsvDt);
 }
 
 /**
@@ -287,7 +287,7 @@ bool FileManager::saveGroupsListDat(const QMap<int, QString>& mapGrps) {
         szCsvDt += QString("%1,%2\n").arg(it.key()).arg(it.value());
     }
     
-    return writeEncodedFile(szOutDirPth + "/GroupsList.dat", szCsvDt);
+    return writeEncodedFile(szOutDirPth + "/" + szFN_GRP_LST, szCsvDt);
 }
 
 /**
@@ -318,7 +318,7 @@ bool FileManager::saveGroupListsDat(const QString& szGrpNm, const QList<TwitchFo
                    .arg(szGidsCol);
     }
     
-    return writeEncodedFile(szTgtDir + "/Lists.dat", szCsvDt);
+    return writeEncodedFile(szTgtDir + "/" + szFN_LSTS, szCsvDt);
 }
 
 /**
@@ -338,5 +338,5 @@ bool FileManager::saveActionHistory(const QList<ActionRecord>& lstHstry) {
                    .arg(oRec.targetGroupName);
     }
     
-    return writeEncodedFile(szCnfgDirPth + "/ActionHistory.dat", szCsvDt);
+    return writeEncodedFile(szCnfgDirPth + "/" + szFN_ACTN_HSTRY, szCsvDt);
 }

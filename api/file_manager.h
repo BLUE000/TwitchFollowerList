@@ -150,6 +150,13 @@ private:
     // CSV 見出し文字列
     static constexpr const char* szHDR_FLW = "No,表示名,ユーザ名,ユーザID,グループID\n";
     static constexpr const char* szHDR_GRP = "グループID,グループ名\n";
+
+    // ファイル名規定
+    static constexpr const char* szFN_ALL_LST   = "AllList.dat";
+    static constexpr const char* szFN_GRP_LST   = "GroupsList.dat";
+    static constexpr const char* szFN_DLTD_USR  = "DeletedUser.dat";
+    static constexpr const char* szFN_ACTN_HSTRY = "ActionHistory.dat";
+    static constexpr const char* szFN_LSTS      = "Lists.dat"; // 各グループ配下のファイル
 };
 
 #endif // FILE_MANAGER_H
