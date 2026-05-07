@@ -63,6 +63,22 @@ private:
     QString szAccsTkn;                 ///< アクセストークン
     QString szClntId;                  ///< Twitch Client ID
     QString szCrntUsrId;               ///< 取得した自ユーザー ID
+
+    // API エンドポイント URL
+    static constexpr const char* szURL_USERS     = "https://api.twitch.tv/helix/users";
+    static constexpr const char* szURL_FOLLOWERS = "https://api.twitch.tv/helix/channels/followers?broadcaster_id=%1";
+
+    // JSON キー
+    static constexpr const char* szJS_DATA       = "data";
+    static constexpr const char* szJS_ID         = "id";
+    static constexpr const char* szJS_USR_ID     = "user_id";
+    static constexpr const char* szJS_USR_LGN    = "user_login";
+    static constexpr const char* szJS_USR_NM     = "user_name";
+
+    // HTTP ヘッダー
+    static constexpr const char* szHDR_AUTH      = "Authorization";
+    static constexpr const char* szHDR_CLNT_ID   = "Client-Id";
+    static constexpr const char* szHDR_BEARER    = "Bearer ";
 };
 
 #endif // TWITCH_API_CLIENT_H

@@ -30,9 +30,9 @@ void TwitchApiClient::setAccessToken(const QString& szTkn) {
  */
 void TwitchApiClient::fetchCurrentUser() {
     QNetworkRequest oReq;
-    oReq.setUrl(QUrl("https://api.twitch.tv/helix/users"));
-    oReq.setRawHeader("Authorization", "Bearer " + szAccsTkn.toUtf8());
-    oReq.setRawHeader("Client-Id", szClntId.toUtf8());
+    oReq.setUrl(QUrl(szURL_USERS));
+    oReq.setRawHeader(szHDR_AUTH, szHDR_BEARER + szAccsTkn.toUtf8());
+    oReq.setRawHeader(szHDR_CLNT_ID, szClntId.toUtf8());
 
     QNetworkReply *pRply = pNtwrkMngr->get(oReq);
     connect(pRply, &QNetworkReply::finished, [this, pRply]() {
@@ -48,11 +48,11 @@ void TwitchApiClient::fetchFollowers() {
         return;
     } else {
         // Helix API: Get Channel Followers
-        QString szUrl = QString("https://api.twitch.tv/helix/channels/followers?broadcaster_id=%1").arg(szCrntUsrId);
+        QString szUrl = QString(szURL_FOLLOWERS).arg(szCrntUsrId);
         QNetworkRequest oReq;
         oReq.setUrl(QUrl(szUrl));
-        oReq.setRawHeader("Authorization", "Bearer " + szAccsTkn.toUtf8());
-        oReq.setRawHeader("Client-Id", szClntId.toUtf8());
+        oReq.setRawHeader(szHDR_AUTH, szHDR_BEARER + szAccsTkn.toUtf8());
+        oReq.setRawHeader(szHDR_CLNT_ID, szClntId.toUtf8());
 
         QNetworkReply *pRply = pNtwrkMngr->get(oReq);
         connect(pRply, &QNetworkReply::finished, [this, pRply]() {
@@ -70,9 +70,9 @@ void TwitchApiClient::onCurrentUserReply(QNetworkReply *pRply) {
         QByteArray oDt = pRply->readAll();
         QJsonDocument oDoc = QJsonDocument::fromJson(oDt);
         QJsonObject oObj = oDoc.object();
-        QJsonArray oArr = oObj["data"].toArray();
+        QJsonArray oArr = oObj[szJS_DATA].toArray();
         if (!oArr.isEmpty()) {
-            szCrntUsrId = oArr[0].toObject()["id"].toString();
+            szCrntUsrId = oArr[0].toObject()[szJS_ID].toString();
             emit currentUserFetched(szCrntUsrId);
         } else { /* no data */ }
     } else {
@@ -91,14 +91,14 @@ void TwitchApiClient::onFollowersReply(QNetworkReply *pRply) {
         QByteArray oDt = pRply->readAll();
         QJsonDocument oDoc = QJsonDocument::fromJson(oDt);
         QJsonObject oObj = oDoc.object();
-        QJsonArray oArr = oObj["data"].toArray();
+        QJsonArray oArr = oObj[szJS_DATA].toArray();
 
         for (const auto& oV : oArr) {
             QJsonObject oF = oV.toObject();
             TwitchFollower oFllwr;
-            oFllwr.userId = oF["user_id"].toString();
-            oFllwr.userLogin = oF["user_login"].toString();
-            oFllwr.userName = oF["user_name"].toString();
+            oFllwr.userId = oF[szJS_USR_ID].toString();
+            oFllwr.userLogin = oF[szJS_USR_LGN].toString();
+            oFllwr.userName = oF[szJS_USR_NM].toString();
             lstFllwrs.append(oFllwr);
         }
         emit followersFetched(lstFllwrs);
