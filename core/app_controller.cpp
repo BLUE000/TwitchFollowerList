@@ -1,4 +1,6 @@
 #include "app_controller.h"
+#include <QTimer>
+#include <QMessageBox>
 
 AppController::AppController(MainWindow *mainWindow, QObject *parent)
     : QObject(parent), view(mainWindow), m_isBusy(false), historyCursor(-1), nextGroupId(1)
@@ -6,6 +8,8 @@ AppController::AppController(MainWindow *mainWindow, QObject *parent)
     authenticator = new TwitchAuthenticator(this);
     apiClient = new TwitchApiClient(this);
     fileManager = new FileManager(this);
+    timeoutTimer = new QTimer(this);
+    timeoutTimer->setSingleShot(true);
 }
 
 void AppController::initialize() {
@@ -20,6 +24,7 @@ void AppController::initialize() {
     connect(authenticator, &TwitchAuthenticator::authCompleted, this, &AppController::handleAuthCompleted);
     connect(apiClient, &TwitchApiClient::currentUserFetched, this, &AppController::handleCurrentUserFetched);
     connect(apiClient, &TwitchApiClient::followersFetched, this, &AppController::handleFollowersFetched);
+    connect(timeoutTimer, &QTimer::timeout, this, &AppController::handleTimeout);
     
     // 既存ファイルのロード
     fileManager->loadAllListDat(currentFollowers);
@@ -37,6 +42,7 @@ void AppController::initialize() {
 
 void AppController::handleLoginRequest() {
     setBusy(true);
+    timeoutTimer->start(30000); // 30秒タイムアウト設定
     authenticator->login();
 }
 
@@ -106,6 +112,7 @@ void AppController::handleFollowersFetched(const QList<TwitchFollower>& fetchedF
     currentFollowers = newCurrentFollowers;
     updateView();
     saveAllState();
+    timeoutTimer->stop(); // 正常終了時はタイマー停止
     setBusy(false);
 }
 
@@ -243,6 +250,14 @@ void AppController::handleRedoRequested() {
         applyAction(actionHistory[historyCursor]);
         updateView();
         saveAllState();
+    }
+}
+
+void AppController::handleTimeout() {
+    if (m_isBusy) {
+        setBusy(false);
+        QMessageBox::warning(view, "ネットワークエラー", 
+            "通信がタイムアウトしました。ネットワーク接続を確認し、再度お試しください。");
     }
 }
 

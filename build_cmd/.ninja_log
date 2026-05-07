@@ -1,0 +1,27 @@
+# ninja log v6
+14	145	7998627461492117	D:/prog/C++/FollowerList/build_cmd/CMakeFiles/cmake.verify_globs	5f13dc443ff0783e
+150	557	7998627466405292	FollowerList_autogen/timestamp	f841ec77134a3a5
+3516	7829	7998627112549121	CMakeFiles/FollowerList.dir/api/file_manager.cpp.obj	5664d6647b38bc97
+150	557	7998627466405292	FollowerList_autogen/mocs_compilation.cpp	f841ec77134a3a5
+150	557	7998627466405292	D:/prog/C++/FollowerList/build_cmd/FollowerList_autogen/timestamp	f841ec77134a3a5
+150	557	7998627466405292	D:/prog/C++/FollowerList/build_cmd/FollowerList_autogen/mocs_compilation.cpp	f841ec77134a3a5
+559	2932	7998627466938747	CMakeFiles/FollowerList.dir/main.cpp.obj	710de127d4b9b794
+557	3116	7998627466918400	CMakeFiles/FollowerList.dir/FollowerList_autogen/mocs_compilation.cpp.obj	28aae4a5a833e994
+3518	4873	7998627112569747	CMakeFiles/FollowerList.dir/api/twitch_authenticator.cpp.obj	d1767e1ae178daba
+3520	5209	7998627112585846	CMakeFiles/FollowerList.dir/api/twitch_api_client.cpp.obj	14b6cc98eed0a13c
+561	3474	7998627466954311	CMakeFiles/FollowerList.dir/core/app_controller.cpp.obj	a7a53264a645c698
+3513	6201	7998627112512346	CMakeFiles/FollowerList.dir/ui/mainwindow.cpp.obj	6c506fc3568d2835
+3474	7094	7998627496092333	D:/prog/C++/FollowerList/bin/Debug/FollowerList.exe	b56eb894aaf3016c
+16	120	7998629318308472	D:/prog/C++/FollowerList/build_cmd/CMakeFiles/cmake.verify_globs	5f13dc443ff0783e
+121	575	7998629323396223	FollowerList_autogen/timestamp	f841ec77134a3a5
+121	575	7998629323396223	FollowerList_autogen/mocs_compilation.cpp	f841ec77134a3a5
+121	575	7998629323396223	D:/prog/C++/FollowerList/build_cmd/FollowerList_autogen/timestamp	f841ec77134a3a5
+121	575	7998629323396223	D:/prog/C++/FollowerList/build_cmd/FollowerList_autogen/mocs_compilation.cpp	f841ec77134a3a5
+586	2224	7998629324004435	CMakeFiles/FollowerList.dir/api/twitch_authenticator.cpp.obj	d1767e1ae178daba
+588	2547	7998629324025444	CMakeFiles/FollowerList.dir/api/twitch_api_client.cpp.obj	14b6cc98eed0a13c
+578	2786	7998629323926274	CMakeFiles/FollowerList.dir/main.cpp.obj	710de127d4b9b794
+575	2921	7998629323900620	CMakeFiles/FollowerList.dir/FollowerList_autogen/mocs_compilation.cpp.obj	28aae4a5a833e994
+579	3173	7998629323942782	CMakeFiles/FollowerList.dir/ui/mainwindow.cpp.obj	6c506fc3568d2835
+581	3382	7998629323963360	CMakeFiles/FollowerList.dir/core/app_controller.cpp.obj	a7a53264a645c698
+583	3688	7998629323978815	CMakeFiles/FollowerList.dir/api/file_manager.cpp.obj	5664d6647b38bc97
+3688	5558	7998629355028529	D:/prog/C++/FollowerList/bin/Debug/FollowerList.exe	b56eb894aaf3016c

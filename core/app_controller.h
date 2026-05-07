@@ -27,12 +27,14 @@ public slots:
     void handleGroupDeleted(int groupId);
     void handleUndoRequested();
     void handleRedoRequested();
+    void handleTimeout();
 
 private:
     MainWindow *view;
     TwitchAuthenticator *authenticator;
     TwitchApiClient *apiClient;
     FileManager *fileManager;
+    QTimer *timeoutTimer;
 
     bool m_isBusy;
     QList<TwitchFollower> currentFollowers;
