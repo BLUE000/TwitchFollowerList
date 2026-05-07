@@ -94,6 +94,25 @@ private:
     static constexpr const char* szHDR_AUTH      = "Authorization";
     static constexpr const char* szHDR_CLNT_ID   = "Client-Id";
     static constexpr const char* szHDR_BEARER    = "Bearer ";
+
+    /**
+     * @brief クラス固有のログメッセージを ID 指定で出力する。
+     * @param id メッセージ ID。
+     */
+    void log(int id);
+
+    /// @brief ログメッセージ ID の定義
+    enum LogId {
+        INF_REQ_SEND    = 101,
+        INF_RES_RECV    = 102,
+        ERR_NET_FAIL    = 301,
+        ERR_JSON_PARSE  = 302,
+        ERR_API_RESP    = 303
+    };
+
+    QMap<int, QString> m_infoTable;  ///< INFO 用メッセージテーブル
+    QMap<int, QString> m_warnTable;  ///< WARN 用メッセージテーブル
+    QMap<int, QString> m_errorTable; ///< ERROR 用メッセージテーブル
 };
 
 #endif // TWITCH_API_CLIENT_H

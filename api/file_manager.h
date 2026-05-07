@@ -163,6 +163,26 @@ private:
     static constexpr const char* szFN_DLTD_USR  = "DeletedUser.dat";
     static constexpr const char* szFN_ACTN_HSTRY = "ActionHistory.dat";
     static constexpr const char* szFN_LSTS      = "Lists.dat"; // 各グループ配下のファイル
+
+    /**
+     * @brief クラス固有のログメッセージを ID 指定で出力する。
+     * @param id メッセージ ID。
+     */
+    void log(int id);
+
+    /// @brief ログメッセージ ID の定義
+    enum LogId {
+        INF_FILE_SAVE   = 101,
+        INF_FILE_LOAD   = 102,
+        INF_CNFG_SAVE   = 103,
+        ERR_FILE_OPEN   = 301,
+        ERR_DIR_CREATE  = 302,
+        ERR_DECODE_FAIL = 303
+    };
+
+    QMap<int, QString> m_infoTable;  ///< INFO 用メッセージテーブル
+    QMap<int, QString> m_warnTable;  ///< WARN 用メッセージテーブル
+    QMap<int, QString> m_errorTable; ///< ERROR 用メッセージテーブル
 };
 
 #endif // FILE_MANAGER_H

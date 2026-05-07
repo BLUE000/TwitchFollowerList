@@ -4,6 +4,7 @@
  */
 
 #include "app_controller.h"
+#include "../api/logger.h"
 #include <QTimer>
 #include <QFileDialog>
 #include <QDateTime>
@@ -46,6 +47,21 @@ void AppController::initialize() {
     connect(pApiClient, &TwitchApiClient::followersFetched, this, &AppController::handleFollowersFetched);
     connect(pTmoutTmr, &QTimer::timeout, this, &AppController::handleTimeout);
     
+    // ログテーブルの初期化
+    m_infoTable[INF_APP_INIT]    = "アプリケーションを初期化しました。";
+    m_infoTable[INF_LOGIN_START] = "Twitch ログイン処理を開始します。";
+    m_infoTable[INF_AUTH_OK]     = "Twitch 認証に成功しました。";
+    m_infoTable[INF_USR_FETCH_OK] = "ユーザー情報の取得に成功しました。";
+    m_infoTable[INF_FLW_FETCH_OK] = "フォロワーリストの取得に成功しました。";
+    m_infoTable[INF_EXPORT_OK]   = "CSV エクスポートが正常に完了しました。";
+
+    m_warnTable[WRN_TIMEOUT]     = "通信がタイムアウトしました。";
+
+    m_errorTable[ERR_USR_FETCH]  = "ユーザー情報の取得に失敗しました。";
+    m_errorTable[ERR_FLW_FETCH]  = "フォロワーリストの取得に失敗しました。";
+
+    log(INF_APP_INIT);
+    
     // 既存ファイルのロード
     pFilMngr->loadAllListDat(lstCrntFllwrs);
     pFilMngr->loadGroupsListDat(mapCrntGrps);
@@ -66,6 +82,7 @@ void AppController::initialize() {
  * @brief ログイン処理を開始し、タイムアウト監視を起動する。
  */
 void AppController::handleLoginRequest() {
+    log(INF_LOGIN_START);
     setBusy(true);
     pTmoutTmr->start(30000); // 30s timeout
     pAuthntctr->login();
@@ -76,6 +93,7 @@ void AppController::handleLoginRequest() {
  * @param szTkn アクセストークン。
  */
 void AppController::handleAuthCompleted(const QString& szTkn) {
+    log(INF_AUTH_OK);
     pView->setLoginStatus(true);
     pApiClient->setAccessToken(szTkn);
     pApiClient->fetchCurrentUser();
@@ -86,6 +104,7 @@ void AppController::handleAuthCompleted(const QString& szTkn) {
  * @param szUsrId Twitch ID。
  */
 void AppController::handleCurrentUserFetched(const QString& szUsrId) {
+    log(INF_USR_FETCH_OK);
     pFilMngr->setTwitchUserId(szUsrId);
     pApiClient->fetchFollowers();
 }
@@ -95,6 +114,7 @@ void AppController::handleCurrentUserFetched(const QString& szUsrId) {
  * @param lstFtchdFllwrs API から取得した最新リスト。
  */
 void AppController::handleFollowersFetched(const QList<TwitchFollower>& lstFtchdFllwrs) {
+    log(INF_FLW_FETCH_OK);
     QList<TwitchFollower> lstNwCrntFllwrs;
     
     QMap<QString, TwitchFollower> mapOldFllwrs;
@@ -325,6 +345,7 @@ void AppController::handleRedoRequested() {
  */
 void AppController::handleTimeout() {
     if (bIsBsy) {
+        log(WRN_TIMEOUT);
         setBusy(false);
         QMessageBox::warning(pView, "ネットワークエラー", 
             "通信がタイムアウトしました。ネットワーク接続を確認し、再度お試しください。");
@@ -399,6 +420,7 @@ void AppController::handleOutputRequested() {
         }
     }
 
+    log(INF_EXPORT_OK);
     QMessageBox::information(pView, "完了", "エクスポートが完了しました。\n" + oTarget.absolutePath());
 }
 
@@ -482,4 +504,14 @@ void AppController::setBusy(bool bBsy) {
     if (pView) {
         pView->setEnabled(!bBsy);
     } else { /* skip */ }
+}
+
+void AppController::log(int id) {
+    if (m_errorTable.contains(id)) {
+        Logger::output("ERROR", m_errorTable[id]);
+    } else if (m_warnTable.contains(id)) {
+        Logger::output("WARN", m_warnTable[id]);
+    } else if (m_infoTable.contains(id)) {
+        Logger::output("INFO", m_infoTable[id]);
+    }
 }

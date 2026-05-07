@@ -13,11 +13,13 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets Network LinguistTools)
 
 # ソースファイルの定義
 file(GLOB_RECURSE SOURCES 
+    api/twitch_authenticator.h api/twitch_authenticator.cpp
+    api/twitch_api_client.h api/twitch_api_client.cpp
+    api/file_manager.h api/file_manager.cpp
+    api/logger.h api/logger.cpp
     "main.cpp"
     "core/*.cpp"
     "core/*.h"
-    "api/*.cpp"
-    "api/*.h"
     "ui/*.cpp"
     "ui/*.h"
     "ui/*.ui"

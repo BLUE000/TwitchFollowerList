@@ -12,6 +12,7 @@
 #include <QByteArray>
 #include <QFileInfo>
 #include <windows.h>
+#include "logger.h"
 
 // 内部用固定シークレット（32文字以上のランダム文字列）
 const QString szPRJCT_SCRT = "FL_Sec_9x7v2B_m4K_L0q9_zX1wP_R3n8_T5j6_vG4h";
@@ -29,6 +30,15 @@ FileManager::FileManager(QObject *pParent) : QObject(pParent) {
     
     QDir().mkpath(szOutDirPth);
     QDir().mkpath(szCnfgDirPth);
+
+    // ログテーブルの初期化
+    m_infoTable[INF_FILE_SAVE]   = "ファイルの保存に成功しました。";
+    m_infoTable[INF_FILE_LOAD]   = "ファイルの読み込みに成功しました。";
+    m_infoTable[INF_CNFG_SAVE]   = "設定ファイルを保存しました。";
+
+    m_errorTable[ERR_FILE_OPEN]   = "ファイルを開くことができませんでした。";
+    m_errorTable[ERR_DIR_CREATE]  = "ディレクトリの作成に失敗しました。";
+    m_errorTable[ERR_DECODE_FAIL] = "データの復号に失敗しました。";
 
     // 保存されているユーザー ID をロード
     QFile oFile(szCnfgDirPth + "/config.ini");
@@ -50,8 +60,11 @@ void FileManager::setTwitchUserId(const QString& szUsrId) {
     if (oFile.open(QIODevice::WriteOnly)) {
         oFile.write(szUsrId.toUtf8());
         oFile.close();
+        log(INF_CNFG_SAVE);
     }
 }
+
+
 
 /**
  * @brief Windows API を使用して実行ファイルのパスを取得する。
@@ -83,6 +96,7 @@ QString FileManager::encodeData(const QString& szCsvDt) {
         return oRes.data().toBase64();
     } else {
         // 失敗時は空を返す
+        log(ERR_DECODE_FAIL);
         return QString();
     }
 }
@@ -98,6 +112,7 @@ QString FileManager::decodeData(const QString& szEncdDt) {
     if (oRes.isSuccess()) {
         return QString::fromUtf8(oRes.data());
     } else {
+        log(ERR_DECODE_FAIL);
         return QString();
     }
 }
@@ -112,6 +127,7 @@ bool FileManager::writeEncodedFile(const QString& szFilePth, const QString& szCs
     QString szEncd = encodeData(szCsvDt);
     QFile oFil(szFilePth);
     if (!oFil.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        log(ERR_FILE_OPEN);
         return false;
     } else {
         QTextStream oStrm(&oFil);
@@ -120,6 +136,7 @@ bool FileManager::writeEncodedFile(const QString& szFilePth, const QString& szCs
 #endif
         oStrm << szEncd;
         oFil.close();
+        log(INF_FILE_SAVE);
         return true;
     }
 }
@@ -353,4 +370,13 @@ bool FileManager::saveActionHistory(const QList<ActionRecord>& lstHstry) {
     }
     
     return writeEncodedFile(szCnfgDirPth + "/" + szFN_ACTN_HSTRY, szCsvDt);
+}
+void FileManager::log(int id) {
+    if (m_errorTable.contains(id)) {
+        Logger::output("ERROR", m_errorTable[id]);
+    } else if (m_warnTable.contains(id)) {
+        Logger::output("WARN", m_warnTable[id]);
+    } else if (m_infoTable.contains(id)) {
+        Logger::output("INFO", m_infoTable[id]);
+    }
 }

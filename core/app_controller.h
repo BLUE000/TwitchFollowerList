@@ -150,6 +150,34 @@ private:
     void updateView();
 
     /**
+     * @brief 操作履歴をファイルへ保存する。
+     */
+    void saveHistory();
+
+    /**
+     * @brief クラス固有のログメッセージを ID 指定で出力する。
+     * @param id メッセージ ID。
+     */
+    void log(int id);
+
+    /// @brief ログメッセージ ID の定義
+    enum LogId {
+        INF_APP_INIT    = 101,
+        INF_LOGIN_START = 102,
+        INF_AUTH_OK     = 103,
+        INF_USR_FETCH_OK = 104,
+        INF_FLW_FETCH_OK = 105,
+        INF_EXPORT_OK   = 106,
+        WRN_TIMEOUT     = 201,
+        ERR_USR_FETCH   = 301,
+        ERR_FLW_FETCH   = 302
+    };
+
+    QMap<int, QString> m_infoTable;  ///< INFO 用メッセージテーブル
+    QMap<int, QString> m_warnTable;  ///< WARN 用メッセージテーブル
+    QMap<int, QString> m_errorTable; ///< ERROR 用メッセージテーブル
+
+    /**
      * @brief 現在のすべての状態をファイルに保存する。
      */
     void saveAllState();
