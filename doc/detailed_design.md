@@ -64,8 +64,8 @@
   - `void saveGroupsListDat(const QMap<int, QString>& groups)`: `out/GroupsList.dat` へ書き込み。
   - `void saveGroupListsDat(int groupId, const QString& groupName, const QList<TwitchFollower>& groupFollowers)`: `out/グループ名/Lists.dat` へ書き込み。未所属の場合は `out/未所属/Lists.dat`。
   - `void saveActionHistory(const QList<ActionRecord>& history)`: `Config/ActionHistory.dat` へ書き込み。
-  - `QString encodeData(const QString& csvData)`: **URLエンコード → 先頭8バイトリバース → Base64エンコード** の共通暗号化・難読化処理。
-  - `QString decodeData(const QString& encodedData)`: 上記の逆変換処理（起動時の履歴読み込みなどに使用）。
+  - `QString encodeData(const QString& csvData)`: **共通暗号化 DLL (TransCipher)** を使用して暗号化し、結果を Base64 文字列として返す。
+  - `QString decodeData(const QString& encodedData)`: Base64 デコード後、**TransCipher** を使用して元の文字列へ復号する。
 
 ---
 
