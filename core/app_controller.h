@@ -1,3 +1,8 @@
+/**
+ * @file app_controller.h
+ * @brief アプリケーション全体の制御ロジック（Controller）の定義。
+ */
+
 #ifndef APP_CONTROLLER_H
 #define APP_CONTROLLER_H
 
@@ -8,49 +13,140 @@
 #include "../api/file_manager.h"
 #include "data_models.h"
 
+class QTimer;
+
+/**
+ * @class AppController
+ * @brief UI（MainWindow）と各 API サービスを仲介し、ビジネスロジックを制御するクラス。
+ */
 class AppController : public QObject {
     Q_OBJECT
 public:
-    explicit AppController(MainWindow *mainWindow, QObject *parent = nullptr);
+    /**
+     * @brief コンストラクタ。
+     * @param pMainWindow メインウィンドウへのポインタ。
+     * @param pParent 親オブジェクト。
+     */
+    explicit AppController(MainWindow *pMainWindow, QObject *pParent = nullptr);
+
+    /**
+     * @brief コントローラーを初期化し、シグナル・スロットを接続する。
+     */
     void initialize();
 
 public slots:
+    /**
+     * @brief ログイン要求を処理する。
+     */
     void handleLoginRequest();
-    void handleAuthCompleted(const QString& token);
-    void handleCurrentUserFetched(const QString& userId);
-    void handleFollowersFetched(const QList<TwitchFollower>& followers);
+
+    /**
+     * @brief 認証完了時の処理。
+     * @param szTkn 取得したアクセストークン。
+     */
+    void handleAuthCompleted(const QString& szTkn);
+
+    /**
+     * @brief ログインユーザー情報の取得完了時の処理。
+     * @param szUsrId Twitch の Numeric User ID。
+     */
+    void handleCurrentUserFetched(const QString& szUsrId);
+
+    /**
+     * @brief フォロワーリスト取得完了時の処理。
+     * @param lstFllwrs 取得されたフォロワーリスト。
+     */
+    void handleFollowersFetched(const QList<TwitchFollower>& lstFllwrs);
     
-    // UIからのアクション
-    void handleFollowerAssigned(const QString& userId, int groupId);
-    void handleFollowerUnassigned(const QString& userId, int groupId);
-    void handleGroupCreated(const QString& groupName);
-    void handleGroupDeleted(int groupId);
+    /**
+     * @brief フォロワーのグループ割り当て処理。
+     * @param szUsrId ユーザー ID。
+     * @param iGrpId グループ ID。
+     */
+    void handleFollowerAssigned(const QString& szUsrId, int iGrpId);
+
+    /**
+     * @brief フォロワーのグループ解除処理。
+     * @param szUsrId ユーザー ID。
+     * @param iGrpId グループ ID。
+     */
+    void handleFollowerUnassigned(const QString& szUsrId, int iGrpId);
+
+    /**
+     * @brief 新規グループ作成処理。
+     * @param szGrpNm グループ名。
+     */
+    void handleGroupCreated(const QString& szGrpNm);
+
+    /**
+     * @brief グループ削除処理。
+     * @param iGrpId 削除対象のグループ ID。
+     */
+    void handleGroupDeleted(int iGrpId);
+
+    /**
+     * @brief Undo（元に戻す）処理。
+     */
     void handleUndoRequested();
+
+    /**
+     * @brief Redo（やり直し）処理。
+     */
     void handleRedoRequested();
+
+    /**
+     * @brief 通信タイムアウト時の処理。
+     */
     void handleTimeout();
 
 private:
-    MainWindow *view;
-    TwitchAuthenticator *authenticator;
-    TwitchApiClient *apiClient;
-    FileManager *fileManager;
-    QTimer *timeoutTimer;
+    MainWindow *pView;                    ///< メインウィンドウへのポインタ
+    TwitchAuthenticator *pAuthntctr;      ///< 認証ハンドラ
+    TwitchApiClient *pApiClient;          ///< Twitch API クライアント
+    FileManager *pFilMngr;                ///< ファイル管理
+    QTimer *pTmoutTmr;                    ///< タイムアウト監視タイマー
 
-    bool m_isBusy;
-    QList<TwitchFollower> currentFollowers;
-    QList<TwitchFollower> currentDeletedUsers; // 追加: 削除済みユーザー
-    QMap<int, QString> currentGroups;
-    QList<ActionRecord> actionHistory;
-    int historyCursor;
-    int nextGroupId;
+    bool bIsBsy;                          ///< 処理中フラグ
+    QList<TwitchFollower> lstCrntFllwrs;  ///< 現在のフォロワーリスト
+    QList<TwitchFollower> lstCrntDltdUsrs; ///< 削除済み（フォロー解除）リスト
+    QMap<int, QString> mapCrntGrps;       ///< 現在のグループマップ
+    QList<ActionRecord> lstActnHstry;     ///< 操作履歴
+    int iHstryCrsr;                       ///< 履歴カーソル位置
+    int iNxtGrpId;                        ///< 次に発行するグループ ID
 
-    void pushAction(const ActionRecord& action);
-    void applyAction(const ActionRecord& action);
-    void revertAction(const ActionRecord& action);
+    /**
+     * @brief アクションを履歴に追加し、適用する。
+     * @param oActn 記録するアクションレコード。
+     */
+    void pushAction(const ActionRecord& oActn);
+
+    /**
+     * @brief アクションを現在の状態に適用する。
+     * @param oActn 適用するアクション。
+     */
+    void applyAction(const ActionRecord& oActn);
+
+    /**
+     * @brief アクションを逆転させて状態を戻す。
+     * @param oActn 逆転させるアクション。
+     */
+    void revertAction(const ActionRecord& oActn);
     
+    /**
+     * @brief UI の表示内容を現在のデータで更新する。
+     */
     void updateView();
+
+    /**
+     * @brief 現在のすべての状態をファイルに保存する。
+     */
     void saveAllState();
-    void setBusy(bool busy);
+
+    /**
+     * @brief ビジー状態（UIロック）を切り替える。
+     * @param bBsy true ならロック、false なら解除。
+     */
+    void setBusy(bool bBsy);
 };
 
 #endif // APP_CONTROLLER_H

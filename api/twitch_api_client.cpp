@@ -1,109 +1,109 @@
 #include "twitch_api_client.h"
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
-#include <QDateTime>
+#include <QUrl>
 
-TwitchApiClient::TwitchApiClient(QObject *parent) : QObject(parent) {
-    networkManager = new QNetworkAccessManager(this);
-    clientId = "lfyil72vhg1s7baymtguh4g06h93qb"; // User's Client ID
+/**
+ * @brief コンストラクタ。
+ * @param pParent 親オブジェクト。
+ */
+TwitchApiClient::TwitchApiClient(QObject *pParent)
+    : QObject(pParent), szClntId("gp762nuuoqcoxypju8c569th9wz7q5")
+{
+    pNtwrkMngr = new QNetworkAccessManager(this);
 }
 
-void TwitchApiClient::setAccessToken(const QString& token) {
-    accessToken = token;
+/**
+ * @brief 認証トークンを保持する。
+ * @param szTkn アクセストークン。
+ */
+void TwitchApiClient::setAccessToken(const QString& szTkn) {
+    szAccsTkn = szTkn;
 }
 
+/**
+ * @brief 自身のユーザー情報を取得する。
+ */
 void TwitchApiClient::fetchCurrentUser() {
-    if (accessToken.isEmpty()) {
-        emit errorOccurred("Access token is empty.");
-        return;
-    }
+    QNetworkRequest oReq;
+    oReq.setUrl(QUrl("https://api.twitch.tv/helix/users"));
+    oReq.setRawHeader("Authorization", "Bearer " + szAccsTkn.toUtf8());
+    oReq.setRawHeader("Client-Id", szClntId.toUtf8());
 
-    QNetworkRequest request(QUrl("https://api.twitch.tv/helix/users"));
-    request.setRawHeader("Authorization", ("Bearer " + accessToken).toUtf8());
-    request.setRawHeader("Client-Id", clientId.toUtf8());
-
-    QNetworkReply* reply = networkManager->get(request);
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() { onUserReplyFinished(reply); });
+    QNetworkReply *pRply = pNtwrkMngr->get(oReq);
+    connect(pRply, &QNetworkReply::finished, [this, pRply]() {
+        onCurrentUserReply(pRply);
+    });
 }
 
-void TwitchApiClient::onUserReplyFinished(QNetworkReply* reply) {
-    reply->deleteLater();
-    if (reply->error() != QNetworkReply::NoError) {
-        emit errorOccurred("Failed to fetch user: " + reply->errorString());
+/**
+ * @brief 自身のフォロワーリストを取得する。
+ */
+void TwitchApiClient::fetchFollowers() {
+    if (szCrntUsrId.isEmpty()) {
         return;
-    }
-
-    QByteArray data = reply->readAll();
-    QJsonDocument doc = QJsonDocument::fromJson(data);
-    QJsonObject obj = doc.object();
-    QJsonArray dataArray = obj.value("data").toArray();
-
-    if (!dataArray.isEmpty()) {
-        QJsonObject userObj = dataArray.first().toObject();
-        broadcasterId = userObj.value("id").toString();
-        emit currentUserFetched(broadcasterId);
     } else {
-        emit errorOccurred("User data not found in response.");
+        // Helix API: Get Channel Followers
+        QString szUrl = QString("https://api.twitch.tv/helix/channels/followers?broadcaster_id=%1").arg(szCrntUsrId);
+        QNetworkRequest oReq;
+        oReq.setUrl(QUrl(szUrl));
+        oReq.setRawHeader("Authorization", "Bearer " + szAccsTkn.toUtf8());
+        oReq.setRawHeader("Client-Id", szClntId.toUtf8());
+
+        QNetworkReply *pRply = pNtwrkMngr->get(oReq);
+        connect(pRply, &QNetworkReply::finished, [this, pRply]() {
+            onFollowersReply(pRply);
+        });
     }
 }
 
-void TwitchApiClient::fetchFollowers(const QString& cursor) {
-    if (broadcasterId.isEmpty() || accessToken.isEmpty()) {
-        emit errorOccurred("Broadcaster ID or access token is empty.");
-        return;
-    }
-
-    // first=100 を指定して最大100件ずつ取得
-    QString urlStr = "https://api.twitch.tv/helix/channels/followers?broadcaster_id=" + broadcasterId + "&first=100";
-    if (!cursor.isEmpty()) {
-        urlStr += "&after=" + cursor;
-    }
-
-    QNetworkRequest request((QUrl(urlStr)));
-    request.setRawHeader("Authorization", ("Bearer " + accessToken).toUtf8());
-    request.setRawHeader("Client-Id", clientId.toUtf8());
-
-    QNetworkReply* reply = networkManager->get(request);
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() { onFollowersReplyFinished(reply); });
-}
-
-void TwitchApiClient::onFollowersReplyFinished(QNetworkReply* reply) {
-    reply->deleteLater();
-    if (reply->error() != QNetworkReply::NoError) {
-        emit errorOccurred("Failed to fetch followers: " + reply->errorString());
-        // エラー時は蓄積データをクリアして終了
-        accumulatedFollowers.clear();
-        return;
-    }
-
-    QByteArray data = reply->readAll();
-    QJsonDocument doc = QJsonDocument::fromJson(data);
-    QJsonObject obj = doc.object();
-    QJsonArray dataArray = obj.value("data").toArray();
-
-    for (const QJsonValue& val : dataArray) {
-        QJsonObject fObj = val.toObject();
-        TwitchFollower f;
-        f.userId = fObj.value("user_id").toString();
-        f.userName = fObj.value("user_name").toString();
-        f.userLogin = fObj.value("user_login").toString();
-        f.followedAt = QDateTime::fromString(fObj.value("followed_at").toString(), Qt::ISODate);
-        
-        accumulatedFollowers.append(f);
-    }
-
-    // ページネーションのカーソルを取得
-    QJsonObject pagination = obj.value("pagination").toObject();
-    QString cursor = pagination.value("cursor").toString();
-
-    // カーソルが存在し、かつデータが取得できている場合は次ページを取得
-    if (!cursor.isEmpty() && dataArray.size() > 0) {
-        fetchFollowers(cursor);
+/**
+ * @brief ユーザー情報レスポンスのパース。
+ * @param pRply ネットワークリプライ。
+ */
+void TwitchApiClient::onCurrentUserReply(QNetworkReply *pRply) {
+    if (pRply->error() == QNetworkReply::NoError) {
+        QByteArray oDt = pRply->readAll();
+        QJsonDocument oDoc = QJsonDocument::fromJson(oDt);
+        QJsonObject oObj = oDoc.object();
+        QJsonArray oArr = oObj["data"].toArray();
+        if (!oArr.isEmpty()) {
+            szCrntUsrId = oArr[0].toObject()["id"].toString();
+            emit currentUserFetched(szCrntUsrId);
+        } else { /* no data */ }
     } else {
-        // 全ページの取得が完了したらシグナルを発火し、蓄積リストをクリア
-        emit followersFetched(accumulatedFollowers);
-        accumulatedFollowers.clear();
+        // Error handling
     }
+    pRply->deleteLater();
+}
+
+/**
+ * @brief フォロワーリストレスポンスのパース。
+ * @param pRply ネットワークリプライ。
+ */
+void TwitchApiClient::onFollowersReply(QNetworkReply *pRply) {
+    if (pRply->error() == QNetworkReply::NoError) {
+        QList<TwitchFollower> lstFllwrs;
+        QByteArray oDt = pRply->readAll();
+        QJsonDocument oDoc = QJsonDocument::fromJson(oDt);
+        QJsonObject oObj = oDoc.object();
+        QJsonArray oArr = oObj["data"].toArray();
+
+        for (const auto& oV : oArr) {
+            QJsonObject oF = oV.toObject();
+            TwitchFollower oFllwr;
+            oFllwr.userId = oF["user_id"].toString();
+            oFllwr.userLogin = oF["user_login"].toString();
+            oFllwr.userName = oF["user_name"].toString();
+            lstFllwrs.append(oFllwr);
+        }
+        emit followersFetched(lstFllwrs);
+    } else {
+        // Error handling
+    }
+    pRply->deleteLater();
 }

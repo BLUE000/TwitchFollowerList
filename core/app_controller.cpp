@@ -1,313 +1,379 @@
+/**
+ * @file app_controller.cpp
+ * @brief AppController クラスの実装。
+ */
+
 #include "app_controller.h"
 #include <QTimer>
 #include <QMessageBox>
 
-AppController::AppController(MainWindow *mainWindow, QObject *parent)
-    : QObject(parent), view(mainWindow), m_isBusy(false), historyCursor(-1), nextGroupId(1)
+/**
+ * @brief コンストラクタ。メンバの初期化を行う。
+ * @param pMainWindow メインウィンドウ。
+ * @param pParent 親オブジェクト。
+ */
+AppController::AppController(MainWindow *pMainWindow, QObject *pParent)
+    : QObject(pParent), pView(pMainWindow), bIsBsy(false), iHstryCrsr(-1), iNxtGrpId(1)
 {
-    authenticator = new TwitchAuthenticator(this);
-    apiClient = new TwitchApiClient(this);
-    fileManager = new FileManager(this);
-    timeoutTimer = new QTimer(this);
-    timeoutTimer->setSingleShot(true);
+    pAuthntctr = new TwitchAuthenticator(this);
+    pApiClient = new TwitchApiClient(this);
+    pFilMngr = new FileManager(this);
+    pTmoutTmr = new QTimer(this);
+    pTmoutTmr->setSingleShot(true);
 }
 
+/**
+ * @brief 各コンポーネント間のシグナル・スロット接続と初期データのロードを行う。
+ */
 void AppController::initialize() {
-    connect(view, &MainWindow::loginRequested, this, &AppController::handleLoginRequest);
-    connect(view, &MainWindow::followerAssignedToGroup, this, &AppController::handleFollowerAssigned);
-    connect(view, &MainWindow::followerUnassignedFromGroup, this, &AppController::handleFollowerUnassigned);
-    connect(view, &MainWindow::groupCreated, this, &AppController::handleGroupCreated);
-    connect(view, &MainWindow::groupDeleted, this, &AppController::handleGroupDeleted);
-    connect(view, &MainWindow::undoRequested, this, &AppController::handleUndoRequested);
-    connect(view, &MainWindow::redoRequested, this, &AppController::handleRedoRequested);
+    connect(pView, &MainWindow::loginRequested, this, &AppController::handleLoginRequest);
+    connect(pView, &MainWindow::followerAssignedToGroup, this, &AppController::handleFollowerAssigned);
+    connect(pView, &MainWindow::followerUnassignedFromGroup, this, &AppController::handleFollowerUnassigned);
+    connect(pView, &MainWindow::groupCreated, this, &AppController::handleGroupCreated);
+    connect(pView, &MainWindow::groupDeleted, this, &AppController::handleGroupDeleted);
+    connect(pView, &MainWindow::undoRequested, this, &AppController::handleUndoRequested);
+    connect(pView, &MainWindow::redoRequested, this, &AppController::handleRedoRequested);
 
-    connect(authenticator, &TwitchAuthenticator::authCompleted, this, &AppController::handleAuthCompleted);
-    connect(apiClient, &TwitchApiClient::currentUserFetched, this, &AppController::handleCurrentUserFetched);
-    connect(apiClient, &TwitchApiClient::followersFetched, this, &AppController::handleFollowersFetched);
-    connect(timeoutTimer, &QTimer::timeout, this, &AppController::handleTimeout);
+    connect(pAuthntctr, &TwitchAuthenticator::authCompleted, this, &AppController::handleAuthCompleted);
+    connect(pApiClient, &TwitchApiClient::currentUserFetched, this, &AppController::handleCurrentUserFetched);
+    connect(pApiClient, &TwitchApiClient::followersFetched, this, &AppController::handleFollowersFetched);
+    connect(pTmoutTmr, &QTimer::timeout, this, &AppController::handleTimeout);
     
     // 既存ファイルのロード
-    fileManager->loadAllListDat(currentFollowers);
-    fileManager->loadGroupsListDat(currentGroups);
-    fileManager->loadDeletedUserDat(currentDeletedUsers);
+    pFilMngr->loadAllListDat(lstCrntFllwrs);
+    pFilMngr->loadGroupsListDat(mapCrntGrps);
+    pFilMngr->loadDeletedUserDat(lstCrntDltdUsrs);
     
-    if (!currentGroups.isEmpty()) {
-        nextGroupId = currentGroups.lastKey() + 1;
+    if (!mapCrntGrps.isEmpty()) {
+        iNxtGrpId = mapCrntGrps.lastKey() + 1;
+    } else {
+        iNxtGrpId = 1;
     }
     
-    view->setGroups(currentGroups);
-    view->setFollowers(currentFollowers);
-    view->setUndoRedoEnabled(false, false);
+    pView->setGroups(mapCrntGrps);
+    pView->setFollowers(lstCrntFllwrs);
+    pView->setUndoRedoEnabled(false, false);
 }
 
+/**
+ * @brief ログイン処理を開始し、タイムアウト監視を起動する。
+ */
 void AppController::handleLoginRequest() {
     setBusy(true);
-    timeoutTimer->start(30000); // 30秒タイムアウト設定
-    authenticator->login();
+    pTmoutTmr->start(30000); // 30s timeout
+    pAuthntctr->login();
 }
 
-void AppController::handleAuthCompleted(const QString& token) {
-    view->setLoginStatus(true);
-    apiClient->setAccessToken(token);
-    apiClient->fetchCurrentUser();
+/**
+ * @brief 認証成功後のトークン設定とカレントユーザー取得開始。
+ * @param szTkn アクセストークン。
+ */
+void AppController::handleAuthCompleted(const QString& szTkn) {
+    pView->setLoginStatus(true);
+    pApiClient->setAccessToken(szTkn);
+    pApiClient->fetchCurrentUser();
 }
 
-void AppController::handleCurrentUserFetched(const QString& userId) {
-    fileManager->setTwitchUserId(userId); // 暗号鍵の生成にIDを使用するように設定
-    apiClient->fetchFollowers();
+/**
+ * @brief カレントユーザー ID 取得完了後の処理。暗号化キーを確定させる。
+ * @param szUsrId Twitch ID。
+ */
+void AppController::handleCurrentUserFetched(const QString& szUsrId) {
+    pFilMngr->setTwitchUserId(szUsrId);
+    pApiClient->fetchFollowers();
 }
 
-void AppController::handleFollowersFetched(const QList<TwitchFollower>& fetchedFollowers) {
-    QList<TwitchFollower> newCurrentFollowers;
+/**
+ * @brief フォロワーリスト取得後の差分更新ロジック。
+ * @param lstFtchdFllwrs API から取得した最新リスト。
+ */
+void AppController::handleFollowersFetched(const QList<TwitchFollower>& lstFtchdFllwrs) {
+    QList<TwitchFollower> lstNwCrntFllwrs;
     
-    // 現在のフォロワーと削除済みフォロワーをMap化しておく
-    QMap<QString, TwitchFollower> oldFollowersMap;
-    for (const auto& f : currentFollowers) {
-        oldFollowersMap.insert(f.userId, f);
+    QMap<QString, TwitchFollower> mapOldFllwrs;
+    for (const auto& oF : lstCrntFllwrs) {
+        mapOldFllwrs.insert(oF.userId, oF);
     }
     
-    QMap<QString, TwitchFollower> deletedFollowersMap;
-    for (const auto& f : currentDeletedUsers) {
-        deletedFollowersMap.insert(f.userId, f);
+    QMap<QString, TwitchFollower> mapDltdFllwrs;
+    for (const auto& oF : lstCrntDltdUsrs) {
+        mapDltdFllwrs.insert(oF.userId, oF);
     }
 
-    QSet<QString> fetchedIds;
-    // APIから取得したユーザーの処理（新規追加・更新・復帰）
-    for (const auto& f : fetchedFollowers) {
-        fetchedIds.insert(f.userId);
-        TwitchFollower newFollower = f;
+    QSet<QString> setFtchdIds;
+    for (const auto& oF : lstFtchdFllwrs) {
+        setFtchdIds.insert(oF.userId);
+        TwitchFollower oNwFllwr = oF;
         
-        if (oldFollowersMap.contains(f.userId)) {
-            // 既存ユーザー：所属グループ情報を引き継ぐ
-            newFollower.groupIds = oldFollowersMap.value(f.userId).groupIds;
-        } else if (deletedFollowersMap.contains(f.userId)) {
-            // 一度削除されたユーザーが再フォローした場合：元のグループ情報を復元
-            newFollower.groupIds = deletedFollowersMap.value(f.userId).groupIds;
-            // 削除済みリストから除外する
-            for (int i = 0; i < currentDeletedUsers.size(); ++i) {
-                if (currentDeletedUsers[i].userId == f.userId) {
-                    currentDeletedUsers.removeAt(i);
+        if (mapOldFllwrs.contains(oF.userId)) {
+            oNwFllwr.groupIds = mapOldFllwrs.value(oF.userId).groupIds;
+        } else if (mapDltdFllwrs.contains(oF.userId)) {
+            oNwFllwr.groupIds = mapDltdFllwrs.value(oF.userId).groupIds;
+            for (int i = 0; i < lstCrntDltdUsrs.size(); ++i) {
+                if (lstCrntDltdUsrs[i].userId == oF.userId) {
+                    lstCrntDltdUsrs.removeAt(i);
                     break;
-                }
+                } else { /* skip */ }
             }
         } else {
-            // 完全新規：所属は空（未所属）のまま
+            // New follower
         }
-        
-        newCurrentFollowers.append(newFollower);
+        lstNwCrntFllwrs.append(oNwFllwr);
     }
     
-    // フォロー解除されたユーザーの処理
-    for (const auto& f : currentFollowers) {
-        if (!fetchedIds.contains(f.userId)) {
-            // API結果に含まれない ＝ フォローを外した
-            // 所属元のグループ情報は f の中に残したまま、DeletedUserリストへ移動する
-            // 既に DeletedUser にいるかは一応チェック
-            if (!deletedFollowersMap.contains(f.userId)) {
-                currentDeletedUsers.append(f);
-            }
-        }
+    for (const auto& oF : lstCrntFllwrs) {
+        if (!setFtchdIds.contains(oF.userId)) {
+            if (!mapDltdFllwrs.contains(oF.userId)) {
+                lstCrntDltdUsrs.append(oF);
+            } else { /* skip */ }
+        } else { /* skip */ }
     }
 
-    currentFollowers = newCurrentFollowers;
+    lstCrntFllwrs = lstNwCrntFllwrs;
     updateView();
     saveAllState();
-    timeoutTimer->stop(); // 正常終了時はタイマー停止
+    pTmoutTmr->stop();
     setBusy(false);
 }
 
-void AppController::pushAction(const ActionRecord& action) {
-    // 現在位置が履歴の最後でない場合（Undo後に新規操作）、未来の履歴を切り捨てる(Truncate)
-    if (historyCursor < actionHistory.size() - 1) {
-        actionHistory.erase(actionHistory.begin() + historyCursor + 1, actionHistory.end());
-    }
+/**
+ * @brief アクションを履歴に積み、適用する。Undo後の操作なら未来を切り捨てる。
+ * @param oActn 実行するアクション。
+ */
+void AppController::pushAction(const ActionRecord& oActn) {
+    if (iHstryCrsr < lstActnHstry.size() - 1) {
+        lstActnHstry.erase(lstActnHstry.begin() + iHstryCrsr + 1, lstActnHstry.end());
+    } else { /* skip */ }
     
-    actionHistory.append(action);
-    historyCursor = actionHistory.size() - 1;
+    lstActnHstry.append(oActn);
+    iHstryCrsr = lstActnHstry.size() - 1;
     
-    applyAction(action);
+    applyAction(oActn);
     updateView();
     saveAllState();
 }
 
-void AppController::applyAction(const ActionRecord& action) {
-    if (action.type == ActionRecord::CreateGroup) {
-        currentGroups.insert(action.targetGroupId, action.targetGroupName);
-        if (action.targetGroupId >= nextGroupId) {
-            nextGroupId = action.targetGroupId + 1;
+/**
+ * @brief アクションを現在の状態（メモリ上）に適用する。
+ * @param oActn 対象アクション。
+ */
+void AppController::applyAction(const ActionRecord& oActn) {
+    if (oActn.type == ActionRecord::CreateGroup) {
+        mapCrntGrps.insert(oActn.targetGroupId, oActn.targetGroupName);
+        if (oActn.targetGroupId >= iNxtGrpId) {
+            iNxtGrpId = oActn.targetGroupId + 1;
+        } else { /* skip */ }
+    } else if (oActn.type == ActionRecord::DeleteGroup) {
+        mapCrntGrps.remove(oActn.targetGroupId);
+        for (auto& oF : lstCrntFllwrs) {
+            oF.groupIds.removeAll(oActn.targetGroupId);
         }
-    } else if (action.type == ActionRecord::DeleteGroup) {
-        currentGroups.remove(action.targetGroupId);
-        for (auto& f : currentFollowers) {
-            f.groupIds.removeAll(action.targetGroupId);
-        }
-    } else if (action.type == ActionRecord::AssignGroup) {
-        for (auto& f : currentFollowers) {
-            if (f.userId == action.targetUserId) {
-                if (!f.groupIds.contains(action.targetGroupId)) {
-                    f.groupIds.append(action.targetGroupId);
-                }
+    } else if (oActn.type == ActionRecord::AssignGroup) {
+        for (auto& oF : lstCrntFllwrs) {
+            if (oF.userId == oActn.targetUserId) {
+                if (!oF.groupIds.contains(oActn.targetGroupId)) {
+                    oF.groupIds.append(oActn.targetGroupId);
+                } else { /* skip */ }
                 break;
-            }
+            } else { /* skip */ }
         }
-    } else if (action.type == ActionRecord::UnassignGroup) {
-        for (auto& f : currentFollowers) {
-            if (f.userId == action.targetUserId) {
-                f.groupIds.removeAll(action.targetGroupId);
+    } else if (oActn.type == ActionRecord::UnassignGroup) {
+        for (auto& oF : lstCrntFllwrs) {
+            if (oF.userId == oActn.targetUserId) {
+                oF.groupIds.removeAll(oActn.targetGroupId);
                 break;
-            }
+            } else { /* skip */ }
         }
+    } else { /* skip */ }
+}
+
+/**
+ * @brief アクションの逆操作を行う。
+ * @param oActn 対象アクション。
+ */
+void AppController::revertAction(const ActionRecord& oActn) {
+    if (oActn.type == ActionRecord::CreateGroup) {
+        mapCrntGrps.remove(oActn.targetGroupId);
+    } else if (oActn.type == ActionRecord::DeleteGroup) {
+        mapCrntGrps.insert(oActn.targetGroupId, oActn.targetGroupName);
+    } else if (oActn.type == ActionRecord::AssignGroup) {
+        for (auto& oF : lstCrntFllwrs) {
+            if (oF.userId == oActn.targetUserId) {
+                oF.groupIds.removeAll(oActn.targetGroupId);
+                break;
+            } else { /* skip */ }
+        }
+    } else if (oActn.type == ActionRecord::UnassignGroup) {
+        for (auto& oF : lstCrntFllwrs) {
+            if (oF.userId == oActn.targetUserId) {
+                if (!oF.groupIds.contains(oActn.targetGroupId)) {
+                    oF.groupIds.append(oActn.targetGroupId);
+                } else { /* skip */ }
+                break;
+            } else { /* skip */ }
+        }
+    } else { /* skip */ }
+}
+
+/**
+ * @brief UI からのグループ作成要求をハンドルする。
+ * @param szGrpNm グループ名。
+ */
+void AppController::handleGroupCreated(const QString& szGrpNm) {
+    ActionRecord oAct;
+    oAct.type = ActionRecord::CreateGroup;
+    oAct.targetGroupId = iNxtGrpId++;
+    oAct.targetGroupName = szGrpNm;
+    pushAction(oAct);
+}
+
+/**
+ * @brief UI からのグループ削除要求をハンドルする。
+ * @param iGrpId グループ ID。
+ */
+void AppController::handleGroupDeleted(int iGrpId) {
+    ActionRecord oAct;
+    oAct.type = ActionRecord::DeleteGroup;
+    oAct.targetGroupId = iGrpId;
+    oAct.targetGroupName = mapCrntGrps.value(iGrpId);
+    pushAction(oAct);
+}
+
+/**
+ * @brief UI からのグループ割り当て要求をハンドルする。
+ * @param szUsrId ユーザー ID。
+ * @param iGrpId グループ ID。
+ */
+void AppController::handleFollowerAssigned(const QString& szUsrId, int iGrpId) {
+    for (const auto& oF : lstCrntFllwrs) {
+        if (oF.userId == szUsrId && oF.groupIds.contains(iGrpId)) {
+            return; 
+        } else { /* skip */ }
     }
+
+    ActionRecord oAct;
+    oAct.type = ActionRecord::AssignGroup;
+    oAct.targetUserId = szUsrId;
+    oAct.targetGroupId = iGrpId;
+    pushAction(oAct);
 }
 
-void AppController::revertAction(const ActionRecord& action) {
-    if (action.type == ActionRecord::CreateGroup) {
-        currentGroups.remove(action.targetGroupId);
-    } else if (action.type == ActionRecord::DeleteGroup) {
-        currentGroups.insert(action.targetGroupId, action.targetGroupName);
-        // 注: 今回の簡易実装ではフォルダ削除時の所属解除はUndoで復元されません（要件外）。
-        // 完全復元が必要な場合、ActionRecordに削除されたユーザーIDリストを持たせる必要があります。
-    } else if (action.type == ActionRecord::AssignGroup) {
-        for (auto& f : currentFollowers) {
-            if (f.userId == action.targetUserId) {
-                f.groupIds.removeAll(action.targetGroupId);
-                break;
-            }
-        }
-    } else if (action.type == ActionRecord::UnassignGroup) {
-        for (auto& f : currentFollowers) {
-            if (f.userId == action.targetUserId) {
-                if (!f.groupIds.contains(action.targetGroupId)) {
-                    f.groupIds.append(action.targetGroupId);
-                }
-                break;
-            }
-        }
-    }
-}
-
-void AppController::handleGroupCreated(const QString& groupName) {
-    ActionRecord act;
-    act.type = ActionRecord::CreateGroup;
-    act.targetGroupId = nextGroupId++;
-    act.targetGroupName = groupName;
-    pushAction(act);
-}
-
-void AppController::handleGroupDeleted(int groupId) {
-    ActionRecord act;
-    act.type = ActionRecord::DeleteGroup;
-    act.targetGroupId = groupId;
-    act.targetGroupName = currentGroups.value(groupId);
-    pushAction(act);
-}
-
-void AppController::handleFollowerAssigned(const QString& userId, int groupId) {
-    // 重複チェック
-    for (const auto& f : currentFollowers) {
-        if (f.userId == userId && f.groupIds.contains(groupId)) {
-            return; // 既に所属しているため何もしない
-        }
-    }
-
-    ActionRecord act;
-    act.type = ActionRecord::AssignGroup;
-    act.targetUserId = userId;
-    act.targetGroupId = groupId;
-    pushAction(act);
-}
-
-void AppController::handleFollowerUnassigned(const QString& userId, int groupId) {
-    // 所属チェック
-    bool found = false;
-    for (const auto& f : currentFollowers) {
-        if (f.userId == userId && f.groupIds.contains(groupId)) {
-            found = true;
+/**
+ * @brief UI からのグループ解除要求をハンドルする。
+ * @param szUsrId ユーザー ID。
+ * @param iGrpId グループ ID。
+ */
+void AppController::handleFollowerUnassigned(const QString& szUsrId, int iGrpId) {
+    bool bFound = false;
+    for (const auto& oF : lstCrntFllwrs) {
+        if (oF.userId == szUsrId && oF.groupIds.contains(iGrpId)) {
+            bFound = true;
             break;
-        }
+        } else { /* skip */ }
     }
-    if (!found) return; // 所属していないため何もしない
-
-    ActionRecord act;
-    act.type = ActionRecord::UnassignGroup;
-    act.targetUserId = userId;
-    act.targetGroupId = groupId;
-    pushAction(act);
+    if (!bFound) {
+        return;
+    } else {
+        ActionRecord oAct;
+        oAct.type = ActionRecord::UnassignGroup;
+        oAct.targetUserId = szUsrId;
+        oAct.targetGroupId = iGrpId;
+        pushAction(oAct);
+    }
 }
 
+/**
+ * @brief Undo 要求をハンドルする。
+ */
 void AppController::handleUndoRequested() {
-    if (historyCursor >= 0) {
-        revertAction(actionHistory[historyCursor]);
-        historyCursor--;
+    if (iHstryCrsr >= 0) {
+        revertAction(lstActnHstry[iHstryCrsr]);
+        iHstryCrsr--;
         updateView();
         saveAllState();
-    }
+    } else { /* skip */ }
 }
 
+/**
+ * @brief Redo 要求をハンドルする。
+ */
 void AppController::handleRedoRequested() {
-    if (historyCursor < actionHistory.size() - 1) {
-        historyCursor++;
-        applyAction(actionHistory[historyCursor]);
+    if (iHstryCrsr < lstActnHstry.size() - 1) {
+        iHstryCrsr++;
+        applyAction(lstActnHstry[iHstryCrsr]);
         updateView();
         saveAllState();
-    }
+    } else { /* skip */ }
 }
 
+/**
+ * @brief 通信タイムアウト時の処理。ロックを解除し警告を表示する。
+ */
 void AppController::handleTimeout() {
-    if (m_isBusy) {
+    if (bIsBsy) {
         setBusy(false);
-        QMessageBox::warning(view, "ネットワークエラー", 
+        QMessageBox::warning(pView, "ネットワークエラー", 
             "通信がタイムアウトしました。ネットワーク接続を確認し、再度お試しください。");
-    }
+    } else { /* skip */ }
 }
 
+/**
+ * @brief UI の表示内容を最新データでリロードする。
+ */
 void AppController::updateView() {
-    view->setFollowers(currentFollowers);
-    view->setGroups(currentGroups);
+    pView->setFollowers(lstCrntFllwrs);
+    pView->setGroups(mapCrntGrps);
     
-    // UI上では直近5回までと表示要件があるが、内部的には全履歴を保持しているため
-    // 単純にカーソル位置からUndo/Redoが可能かどうかでボタンを制御
-    bool canUndo = (historyCursor >= 0);
-    bool canRedo = (historyCursor < actionHistory.size() - 1);
+    bool bCanWnd = (iHstryCrsr >= 0);
+    bool bCanRd = (iHstryCrsr < lstActnHstry.size() - 1);
     
-    view->setUndoRedoEnabled(canUndo, canRedo);
+    pView->setUndoRedoEnabled(bCanWnd, bCanRd);
 }
 
+/**
+ * @brief 現在の状態を各データファイルに保存する。
+ */
 void AppController::saveAllState() {
-    bool wasBusy = m_isBusy;
-    if (!wasBusy) setBusy(true);
+    bool bWasBsy = bIsBsy;
+    if (!bWasBsy) {
+        setBusy(true);
+    } else { /* skip */ }
     
-    fileManager->saveAllListDat(currentFollowers);
-    fileManager->saveGroupsListDat(currentGroups);
-    fileManager->saveActionHistory(actionHistory);
-    fileManager->saveDeletedUserDat(currentDeletedUsers); // 削除済みユーザーを保存
+    pFilMngr->saveAllListDat(lstCrntFllwrs);
+    pFilMngr->saveGroupsListDat(mapCrntGrps);
+    pFilMngr->saveActionHistory(lstActnHstry);
+    pFilMngr->saveDeletedUserDat(lstCrntDltdUsrs);
     
-    // 各グループの出力
-    for (auto it = currentGroups.constBegin(); it != currentGroups.constEnd(); ++it) {
-        QList<TwitchFollower> groupFollowers;
-        for (const auto& f : currentFollowers) {
-            if (f.groupIds.contains(it.key())) {
-                groupFollowers.append(f);
-            }
+    for (auto it = mapCrntGrps.constBegin(); it != mapCrntGrps.constEnd(); ++it) {
+        QList<TwitchFollower> lstGrpFllwrs;
+        for (const auto& oF : lstCrntFllwrs) {
+            if (oF.groupIds.contains(it.key())) {
+                lstGrpFllwrs.append(oF);
+            } else { /* skip */ }
         }
-        fileManager->saveGroupListsDat(it.value(), groupFollowers);
+        pFilMngr->saveGroupListsDat(it.value(), lstGrpFllwrs);
     }
     
-    // 未所属の出力
-    QList<TwitchFollower> unassigned;
-    for (const auto& f : currentFollowers) {
-        if (f.groupIds.isEmpty()) {
-            unassigned.append(f);
-        }
+    QList<TwitchFollower> lstUnsnd;
+    for (const auto& oF : lstCrntFllwrs) {
+        if (oF.groupIds.isEmpty()) {
+            lstUnsnd.append(oF);
+        } else { /* skip */ }
     }
-    fileManager->saveGroupListsDat("未所属", unassigned);
+    pFilMngr->saveGroupListsDat("未所属", lstUnsnd);
 
-    if (!wasBusy) setBusy(false);
+    if (!bWasBsy) {
+        setBusy(false);
+    } else { /* skip */ }
 }
 
-void AppController::setBusy(bool busy) {
-    m_isBusy = busy;
-    if (view) {
-        view->setEnabled(!busy);
-    }
+/**
+ * @brief UI の有効・無効を切り替える。
+ * @param bBsy true ならロック。
+ */
+void AppController::setBusy(bool bBsy) {
+    bIsBsy = bBsy;
+    if (pView) {
+        pView->setEnabled(!bBsy);
+    } else { /* skip */ }
 }

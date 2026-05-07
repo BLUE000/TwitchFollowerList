@@ -1,243 +1,343 @@
+/**
+ * @file file_manager.cpp
+ * @brief FileManager クラスの実装。
+ */
+
 #include "file_manager.h"
-#include "cipher_engine.h" // TransCipher API
+#include "cipher_engine.h"
 #include <QDir>
 #include <QFile>
 #include <QTextStream>
 #include <QUrl>
 #include <QByteArray>
+#include <QFileInfo>
 #include <windows.h>
 
 // 内部用固定シークレット（32文字以上のランダム文字列）
-const QString PROJECT_SECRET = "FL_Sec_9x7v2B_m4K_L0q9_zX1wP_R3n8_T5j6_vG4h";
+const QString szPRJCT_SCRT = "FL_Sec_9x7v2B_m4K_L0q9_zX1wP_R3n8_T5j6_vG4h";
 
-FileManager::FileManager(QObject *parent) : QObject(parent) {
-    QString exePath = getExecutablePath();
-    QDir exeDir(exePath);
+/**
+ * @brief コンストラクタ。実行環境からパスを特定し、必要なディレクトリを作成する。
+ * @param pParent 親オブジェクト。
+ */
+FileManager::FileManager(QObject *pParent) : QObject(pParent) {
+    QString szExePth = getExecutablePath();
+    QDir oExeDir(szExePth);
     
-    outDirPath = exeDir.absoluteFilePath("out");
-    configDirPath = exeDir.absoluteFilePath("Config");
+    szOutDirPth = oExeDir.absoluteFilePath("out");
+    szCnfgDirPth = oExeDir.absoluteFilePath("Config");
     
-    QDir().mkpath(outDirPath);
-    QDir().mkpath(configDirPath);
+    QDir().mkpath(szOutDirPth);
+    QDir().mkpath(szCnfgDirPth);
 }
 
-void FileManager::setTwitchUserId(const QString& userId) {
-    m_twitchUserId = userId;
+/**
+ * @brief Twitch ユーザー ID を保持する。
+ * @param szUsrId ユーザー ID。
+ */
+void FileManager::setTwitchUserId(const QString& szUsrId) {
+    szTwtchUsrId = szUsrId;
 }
 
+/**
+ * @brief Windows API を使用して実行ファイルのパスを取得する。
+ * @return 実行ファイルが存在するディレクトリのパス。
+ */
 QString FileManager::getExecutablePath() {
-    char path[MAX_PATH];
-    GetModuleFileNameA(NULL, path, MAX_PATH);
-    QString fullPath = QString::fromLocal8Bit(path);
-    return QFileInfo(fullPath).absolutePath();
+    char szPth[MAX_PATH];
+    GetModuleFileNameA(NULL, szPth, MAX_PATH);
+    QString szFullPth = QString::fromLocal8Bit(szPth);
+    return QFileInfo(szFullPth).absolutePath();
 }
 
+/**
+ * @brief プロジェクトシークレットとユーザー ID を結合して鍵を生成する。
+ * @return 生成された暗号化キー。
+ */
 QString FileManager::getDynamicKey() {
-    // [プロジェクト固定キー] + [Twitch ID]
-    return PROJECT_SECRET + m_twitchUserId;
+    return szPRJCT_SCRT + szTwtchUsrId;
 }
 
-QString FileManager::encodeData(const QString& csvData) {
-    // TransCipher を使用して暗号化（動的鍵を使用）
-    CipherResult result = CipherEngine::encrypt(csvData.toUtf8(), getDynamicKey());
-    if (result.isSuccess()) {
-        // 保存用に Base64 形式に変換
-        return result.data().toBase64();
-    }
-    return QString();
-}
-
-QString FileManager::decodeData(const QString& encodedData) {
-    // Base64 デコードしてバイナリに戻す
-    QByteArray cipherData = QByteArray::fromBase64(encodedData.toUtf8());
-    
-    // TransCipher を使用して復号（動的鍵を使用）
-    CipherResult result = CipherEngine::decrypt(cipherData, getDynamicKey());
-    if (result.isSuccess()) {
-        return QString::fromUtf8(result.data());
-    }
-    return QString();
-}
-
-bool FileManager::writeEncodedFile(const QString& filePath, const QString& csvData) {
-    QString encoded = encodeData(csvData);
-    QFile file(filePath);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        return false;
-    }
-    QTextStream out(&file);
-    // Base64結果はASCIIのみなので文字コード指定は不要だが明示的においておく
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-    out.setCodec("UTF-8");
-#endif
-    out << encoded;
-    file.close();
-    return true;
-}
-
-QString FileManager::readEncodedFile(const QString& filePath) {
-    QFile file(filePath);
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+/**
+ * @brief データを暗号化する。
+ * @param szCsvDt 元の CSV データ。
+ * @return 暗号化後の文字列（Base64）。
+ */
+QString FileManager::encodeData(const QString& szCsvDt) {
+    CipherResult oRes = CipherEngine::encrypt(szCsvDt.toUtf8(), getDynamicKey());
+    if (oRes.isSuccess()) {
+        return oRes.data().toBase64();
+    } else {
+        // 失敗時は空を返す
         return QString();
     }
-    QString content = file.readAll();
-    file.close();
-    return decodeData(content);
 }
 
-bool FileManager::loadAllListDat(QList<TwitchFollower>& followers) {
-    QString csvData = readEncodedFile(outDirPath + "/AllList.dat");
-    if (csvData.isEmpty()) return false;
-    
-    followers.clear();
-    QStringList lines = csvData.split('\n', Qt::SkipEmptyParts);
-    for (const QString& line : lines) {
-        QStringList parts = line.split(',');
-        if (parts.size() >= 4) {
-            TwitchFollower f;
-            f.userName = parts[1];
-            f.userLogin = parts[2];
-            f.userId = parts[3];
-            if (parts.size() >= 5) {
-                QStringList gids = parts[4].split('|', Qt::SkipEmptyParts);
-                for (const QString& gid : gids) {
-                    f.groupIds.append(gid.toInt());
+/**
+ * @brief 暗号化されたデータを復号する。
+ * @param szEncdDt 暗号化されたデータ（Base64）。
+ * @return 復号された CSV データ。
+ */
+QString FileManager::decodeData(const QString& szEncdDt) {
+    QByteArray oCphrDt = QByteArray::fromBase64(szEncdDt.toUtf8());
+    CipherResult oRes = CipherEngine::decrypt(oCphrDt, getDynamicKey());
+    if (oRes.isSuccess()) {
+        return QString::fromUtf8(oRes.data());
+    } else {
+        return QString();
+    }
+}
+
+/**
+ * @brief エンコードしてファイルへ書き込む。
+ * @param szFilePth ファイルパス。
+ * @param szCsvDt 保存データ。
+ * @return 成功なら true。
+ */
+bool FileManager::writeEncodedFile(const QString& szFilePth, const QString& szCsvDt) {
+    QString szEncd = encodeData(szCsvDt);
+    QFile oFil(szFilePth);
+    if (!oFil.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        return false;
+    } else {
+        QTextStream oStrm(&oFil);
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+        oStrm.setCodec("UTF-8");
+#endif
+        oStrm << szEncd;
+        oFil.close();
+        return true;
+    }
+}
+
+/**
+ * @brief ファイルから読み込んで復号する。
+ * @param szFilePth ファイルパス。
+ * @return 復号されたデータ。
+ */
+QString FileManager::readEncodedFile(const QString& szFilePth) {
+    QFile oFil(szFilePth);
+    if (!oFil.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return QString();
+    } else {
+        QString szCntnt = oFil.readAll();
+        oFil.close();
+        return decodeData(szCntnt);
+    }
+}
+
+/**
+ * @brief 全フォロワーリストをロードする。
+ * @param lstFllwrs 格納先。
+ * @return 成功なら true。
+ */
+bool FileManager::loadAllListDat(QList<TwitchFollower>& lstFllwrs) {
+    QString szCsvDt = readEncodedFile(szOutDirPth + "/AllList.dat");
+    if (szCsvDt.isEmpty()) {
+        return false;
+    } else {
+        lstFllwrs.clear();
+        QStringList lstLns = szCsvDt.split('\n', Qt::SkipEmptyParts);
+        for (const QString& szLn : lstLns) {
+            QStringList lstPrts = szLn.split(',');
+            if (lstPrts.size() >= 4) {
+                TwitchFollower oFllwr;
+                oFllwr.userName = lstPrts[1];
+                oFllwr.userLogin = lstPrts[2];
+                oFllwr.userId = lstPrts[3];
+                if (lstPrts.size() >= 5) {
+                    QStringList lstGids = lstPrts[4].split('|', Qt::SkipEmptyParts);
+                    for (const QString& szGid : lstGids) {
+                        oFllwr.groupIds.append(szGid.toInt());
+                    }
+                } else {
+                    // 追加属性なし
                 }
+                lstFllwrs.append(oFllwr);
+            } else {
+                // 不正な行
             }
-            followers.append(f);
         }
+        return true;
     }
-    return true;
 }
 
-bool FileManager::loadGroupsListDat(QMap<int, QString>& groups) {
-    QString csvData = readEncodedFile(outDirPath + "/GroupsList.dat");
-    if (csvData.isEmpty()) return false;
-    
-    groups.clear();
-    QStringList lines = csvData.split('\n', Qt::SkipEmptyParts);
-    for (const QString& line : lines) {
-        QStringList parts = line.split(',');
-        if (parts.size() >= 2) {
-            groups.insert(parts[0].toInt(), parts[1]);
+/**
+ * @brief グループ一覧をロードする。
+ * @param mapGrps 格納先。
+ * @return 成功なら true。
+ */
+bool FileManager::loadGroupsListDat(QMap<int, QString>& mapGrps) {
+    QString szCsvDt = readEncodedFile(szOutDirPth + "/GroupsList.dat");
+    if (szCsvDt.isEmpty()) {
+        return false;
+    } else {
+        mapGrps.clear();
+        QStringList lstLns = szCsvDt.split('\n', Qt::SkipEmptyParts);
+        for (const QString& szLn : lstLns) {
+            QStringList lstPrts = szLn.split(',');
+            if (lstPrts.size() >= 2) {
+                mapGrps.insert(lstPrts[0].toInt(), lstPrts[1]);
+            } else {
+                // 不正な行
+            }
         }
+        return true;
     }
-    return true;
 }
 
-bool FileManager::loadDeletedUserDat(QList<TwitchFollower>& deletedUsers) {
-    QString csvData = readEncodedFile(outDirPath + "/DeletedUser.dat");
-    if (csvData.isEmpty()) return false;
-    
-    deletedUsers.clear();
-    QStringList lines = csvData.split('\n', Qt::SkipEmptyParts);
-    for (const QString& line : lines) {
-        QStringList parts = line.split(',');
-        if (parts.size() >= 4) {
-            TwitchFollower f;
-            f.userName = parts[1];
-            f.userLogin = parts[2];
-            f.userId = parts[3];
-            if (parts.size() >= 5) {
-                QStringList gids = parts[4].split('|', Qt::SkipEmptyParts);
-                for (const QString& gid : gids) {
-                    f.groupIds.append(gid.toInt());
+/**
+ * @brief 削除済みユーザー（フォロー解除者）リストをロードする。
+ * @param lstDltdUsrs 格納先。
+ * @return 成功なら true。
+ */
+bool FileManager::loadDeletedUserDat(QList<TwitchFollower>& lstDltdUsrs) {
+    QString szCsvDt = readEncodedFile(szOutDirPth + "/DeletedUser.dat");
+    if (szCsvDt.isEmpty()) {
+        return false;
+    } else {
+        lstDltdUsrs.clear();
+        QStringList lstLns = szCsvDt.split('\n', Qt::SkipEmptyParts);
+        for (const QString& szLn : lstLns) {
+            QStringList lstPrts = szLn.split(',');
+            if (lstPrts.size() >= 4) {
+                TwitchFollower oFllwr;
+                oFllwr.userName = lstPrts[1];
+                oFllwr.userLogin = lstPrts[2];
+                oFllwr.userId = lstPrts[3];
+                if (lstPrts.size() >= 5) {
+                    QStringList lstGids = lstPrts[4].split('|', Qt::SkipEmptyParts);
+                    for (const QString& szGid : lstGids) {
+                        oFllwr.groupIds.append(szGid.toInt());
+                    }
+                } else {
+                    // 追加属性なし
                 }
+                lstDltdUsrs.append(oFllwr);
+            } else {
+                // 不正な行
             }
-            deletedUsers.append(f);
         }
+        return true;
     }
-    return true;
 }
 
-bool FileManager::saveDeletedUserDat(const QList<TwitchFollower>& deletedUsers) {
-    QString csv;
-    for (int i = 0; i < deletedUsers.size(); ++i) {
-        const auto& f = deletedUsers[i];
-        QStringList gids;
-        for (int gid : f.groupIds) gids << QString::number(gid);
-        csv += QString("%1,%2,%3,%4,%5\n")
-               .arg(i + 1)
-               .arg(f.userName)
-               .arg(f.userLogin)
-               .arg(f.userId)
-               .arg(gids.join("|"));
+/**
+ * @brief 削除済みユーザーリストを保存する。
+ * @param lstDltdUsrs 保存対象。
+ * @return 成功なら true。
+ */
+bool FileManager::saveDeletedUserDat(const QList<TwitchFollower>& lstDltdUsrs) {
+    QString szCsv;
+    for (int i = 0; i < lstDltdUsrs.size(); ++i) {
+        const auto& oFllwr = lstDltdUsrs[i];
+        QStringList lstGids;
+        for (int iGid : oFllwr.groupIds) {
+            lstGids << QString::number(iGid);
+        }
+        szCsv += QString("%1,%2,%3,%4,%5\n")
+                 .arg(i + 1)
+                 .arg(oFllwr.userName)
+                 .arg(oFllwr.userLogin)
+                 .arg(oFllwr.userId)
+                 .arg(lstGids.join("|"));
     }
-    return writeEncodedFile(outDirPath + "/DeletedUser.dat", csv);
+    return writeEncodedFile(szOutDirPth + "/DeletedUser.dat", szCsv);
 }
 
-bool FileManager::saveAllListDat(const QList<TwitchFollower>& followers) {
-    QString csvData;
-    QTextStream stream(&csvData);
-    stream << "No,表示名,ユーザ名,ユーザID,グループID\n";
+/**
+ * @brief 全フォロワーリストを保存する。
+ * @param lstFllwrs 保存対象。
+ * @return 成功なら true。
+ */
+bool FileManager::saveAllListDat(const QList<TwitchFollower>& lstFllwrs) {
+    QString szCsvDt;
+    QTextStream oStrm(&szCsvDt);
+    szCsvDt += "No,表示名,ユーザ名,ユーザID,グループID\n";
     
-    int no = 1;
-    for (const auto& follower : followers) {
-        QStringList groupsStrList;
-        for (int gid : follower.groupIds) {
-            groupsStrList << QString::number(gid);
+    int iNo = 1;
+    for (const auto& oFllwr : lstFllwrs) {
+        QStringList lstGidsStr;
+        for (int iGid : oFllwr.groupIds) {
+            lstGidsStr << QString::number(iGid);
         }
-        QString groupsCol = groupsStrList.join("|");
+        QString szGidsCol = lstGidsStr.join("|");
         
-        stream << no++ << ","
-               << follower.userName << ","
-               << follower.userLogin << ","
-               << follower.userId << ","
-               << groupsCol << "\n";
+        szCsvDt += QString("%1,%2,%3,%4,%5\n")
+                   .arg(iNo++)
+                   .arg(oFllwr.userName)
+                   .arg(oFllwr.userLogin)
+                   .arg(oFllwr.userId)
+                   .arg(szGidsCol);
     }
     
-    return writeEncodedFile(outDirPath + "/AllList.dat", csvData);
+    return writeEncodedFile(szOutDirPth + "/AllList.dat", szCsvDt);
 }
 
-bool FileManager::saveGroupsListDat(const QMap<int, QString>& groups) {
-    QString csvData;
-    QTextStream stream(&csvData);
-    stream << "グループID,グループ名\n";
+/**
+ * @brief グループ一覧を保存する。
+ * @param mapGrps 保存対象。
+ * @return 成功なら true。
+ */
+bool FileManager::saveGroupsListDat(const QMap<int, QString>& mapGrps) {
+    QString szCsvDt;
+    szCsvDt += "グループID,グループ名\n";
     
-    for (auto it = groups.constBegin(); it != groups.constEnd(); ++it) {
-        stream << it.key() << "," << it.value() << "\n";
+    for (auto it = mapGrps.constBegin(); it != mapGrps.constEnd(); ++it) {
+        szCsvDt += QString("%1,%2\n").arg(it.key()).arg(it.value());
     }
     
-    return writeEncodedFile(outDirPath + "/GroupsList.dat", csvData);
+    return writeEncodedFile(szOutDirPth + "/GroupsList.dat", szCsvDt);
 }
 
-bool FileManager::saveGroupListsDat(const QString& groupName, const QList<TwitchFollower>& groupFollowers) {
-    QString targetDir = outDirPath + "/" + groupName;
-    QDir().mkpath(targetDir);
+/**
+ * @brief 各グループの個別フォロワーリストを保存する。
+ * @param szGrpNm グループ名。
+ * @param lstGrpFllwrs 対象フォロワーリスト。
+ * @return 成功なら true。
+ */
+bool FileManager::saveGroupListsDat(const QString& szGrpNm, const QList<TwitchFollower>& lstGrpFllwrs) {
+    QString szTgtDir = szOutDirPth + "/" + szGrpNm;
+    QDir().mkpath(szTgtDir);
     
-    QString csvData;
-    QTextStream stream(&csvData);
-    stream << "No,表示名,ユーザ名,ユーザID,グループID\n";
+    QString szCsvDt;
+    szCsvDt += "No,表示名,ユーザ名,ユーザID,グループID\n";
     
-    int no = 1;
-    for (const auto& follower : groupFollowers) {
-        QStringList groupsStrList;
-        for (int gid : follower.groupIds) {
-            groupsStrList << QString::number(gid);
+    int iNo = 1;
+    for (const auto& oFllwr : lstGrpFllwrs) {
+        QStringList lstGidsStr;
+        for (int iGid : oFllwr.groupIds) {
+            lstGidsStr << QString::number(iGid);
         }
-        QString groupsCol = groupsStrList.join("|");
+        QString szGidsCol = lstGidsStr.join("|");
         
-        stream << no++ << ","
-               << follower.userName << ","
-               << follower.userLogin << ","
-               << follower.userId << ","
-               << groupsCol << "\n";
+        szCsvDt += QString("%1,%2,%3,%4,%5\n")
+                   .arg(iNo++)
+                   .arg(oFllwr.userName)
+                   .arg(oFllwr.userLogin)
+                   .arg(oFllwr.userId)
+                   .arg(szGidsCol);
     }
     
-    return writeEncodedFile(targetDir + "/Lists.dat", csvData);
+    return writeEncodedFile(szTgtDir + "/Lists.dat", szCsvDt);
 }
 
-bool FileManager::saveActionHistory(const QList<ActionRecord>& history) {
-    QString csvData;
-    QTextStream stream(&csvData);
-    stream << "Type,UserId,GroupId,GroupName\n";
+/**
+ * @brief 操作履歴を保存する。
+ * @param lstHstry 保存対象。
+ * @return 成功なら true。
+ */
+bool FileManager::saveActionHistory(const QList<ActionRecord>& lstHstry) {
+    QString szCsvDt;
+    szCsvDt += "Type,UserId,GroupId,GroupName\n";
     
-    for (const auto& record : history) {
-        stream << record.type << ","
-               << record.targetUserId << ","
-               << record.targetGroupId << ","
-               << record.targetGroupName << "\n";
+    for (const auto& oRec : lstHstry) {
+        szCsvDt += QString("%1,%2,%3,%4\n")
+                   .arg(static_cast<int>(oRec.type))
+                   .arg(oRec.targetUserId)
+                   .arg(oRec.targetGroupId)
+                   .arg(oRec.targetGroupName);
     }
     
-    return writeEncodedFile(configDirPath + "/ActionHistory.dat", csvData);
+    return writeEncodedFile(szCnfgDirPth + "/ActionHistory.dat", szCsvDt);
 }

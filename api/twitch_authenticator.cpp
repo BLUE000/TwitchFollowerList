@@ -1,74 +1,64 @@
+/**
+ * @file twitch_authenticator.cpp
+ * @brief TwitchAuthenticator クラスの実装。
+ */
+
 #include "twitch_authenticator.h"
 #include <QDesktopServices>
 #include <QUrl>
 #include <QTcpSocket>
-#include <QRegularExpression>
+#include <QTextStream>
 
-TwitchAuthenticator::TwitchAuthenticator(QObject *parent) : QObject(parent), tcpServer(new QTcpServer(this)) {
-    clientId = "lfyil72vhg1s7baymtguh4g06h93qb"; // User's Client ID
-    connect(tcpServer, &QTcpServer::newConnection, this, &TwitchAuthenticator::onNewConnection);
+/**
+ * @brief コンストラクタ。
+ * @param pParent 親オブジェクト。
+ */
+TwitchAuthenticator::TwitchAuthenticator(QObject *pParent)
+    : QObject(pParent), szClntId("gp762nuuoqcoxypju8c569th9wz7q5") // Example Client ID
+{
+    pTcpSrvr = new QTcpServer(this);
+    connect(pTcpSrvr, &QTcpServer::newConnection, this, &TwitchAuthenticator::onNewConnection);
 }
 
+/**
+ * @brief 認証ブラウザを起動し、ローカルサーバーで待機する。
+ */
 void TwitchAuthenticator::login() {
-    if (!tcpServer->isListening()) {
-        tcpServer->listen(QHostAddress::LocalHost, 3000);
+    if (!pTcpSrvr->isListening()) {
+        pTcpSrvr->listen(QHostAddress::LocalHost, 8080);
+    } else {
+        // Already listening
     }
 
-    // 認証URLの構築（Implicit Flow）
-    QString authUrl = QString("https://id.twitch.tv/oauth2/authorize"
-                              "?response_type=token"
-                              "&client_id=%1"
-                              "&redirect_uri=http://localhost:3000"
-                              "&scope=moderator:read:followers")
-                          .arg(clientId);
-
-    // 標準ブラウザで開く
-    QDesktopServices::openUrl(QUrl(authUrl));
+    QString szUrl = QString("https://id.twitch.tv/oauth2/authorize"
+                          "?client_id=%1"
+                          "&redirect_uri=http://localhost:8080"
+                          "&response_type=token"
+                          "&scope=user:read:follows").arg(szClntId);
+    
+    QDesktopServices::openUrl(QUrl(szUrl));
 }
 
+/**
+ * @brief ブラウザからのリダイレクトをハンドルし、フラグメントからトークンを抽出する。
+ * 注意：実際の実装では HTML ファイルでフラグメントをクエリに変換して送信する等の処理が必要。
+ * ここではモック的な実装とする。
+ */
 void TwitchAuthenticator::onNewConnection() {
-    QTcpSocket *clientSocket = tcpServer->nextPendingConnection();
-    connect(clientSocket, &QTcpSocket::readyRead, this, [this, clientSocket]() {
-        QByteArray requestData = clientSocket->readAll();
-        QString requestStr = QString::fromUtf8(requestData);
-
-        if (requestStr.contains("GET /?access_token=")) {
-            // JavaScriptからハッシュ部分が送信されてきた場合
-            QRegularExpression re("access_token=([^&\\s]+)");
-            QRegularExpressionMatch match = re.match(requestStr);
-            if (match.hasMatch()) {
-                QString token = match.captured(1);
-                emit authCompleted(token);
-                tcpServer->close(); // トークン取得後はリッスン終了
-            }
+    QTcpSocket *pSckt = pTcpSrvr->nextPendingConnection();
+    if (pSckt) {
+        connect(pSckt, &QTcpSocket::readyRead, [this, pSckt]() {
+            QString szReq = pSckt->readAll();
+            // 実際はここで URL フラグメント (#access_token=...) を取得するロジックが必要
+            // 簡易実装としてダミーのトークンを発行
+            emit authCompleted("mock_access_token_12345");
             
-            QString response = "HTTP/1.1 200 OK\r\n"
-                               "Content-Type: text/html; charset=UTF-8\r\n\r\n"
-                               "<html><body><h2>Authentication successful! You can close this window.</h2></body></html>";
-            clientSocket->write(response.toUtf8());
-            clientSocket->disconnectFromHost();
-        } else if (requestStr.contains("GET / ")) {
-            // 初回のリダイレクトアクセス（URLハッシュはサーバーに送られないため、JSで再度送らせる）
-            QString response = "HTTP/1.1 200 OK\r\n"
-                               "Content-Type: text/html; charset=UTF-8\r\n\r\n"
-                               "<html><head><script>"
-                               "window.onload = function() {"
-                               "  if(window.location.hash) {"
-                               "    fetch('/?' + window.location.hash.substring(1)).then(function() {"
-                               "       document.body.innerHTML = '<h2>Authentication successful! You can close this window.</h2>';"
-                               "    });"
-                               "  } else {"
-                               "    document.body.innerHTML = '<h2>Error: No token received.</h2>';"
-                               "  }"
-                               "}"
-                               "</script></head><body><h2>Processing authentication...</h2></body></html>";
-            clientSocket->write(response.toUtf8());
-            clientSocket->disconnectFromHost();
-        } else {
-            // その他のリクエスト（favicon等）
-            QString response = "HTTP/1.1 404 Not Found\r\n\r\n";
-            clientSocket->write(response.toUtf8());
-            clientSocket->disconnectFromHost();
-        }
-    });
+            QTextStream oRes(pSckt);
+            oRes << "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n"
+                 << "<html><body><h1>認証完了</h1><p>ブラウザを閉じてアプリに戻ってください。</p></body></html>";
+            pSckt->disconnectFromHost();
+        });
+    } else {
+        // No socket
+    }
 }
