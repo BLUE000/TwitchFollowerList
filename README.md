@@ -18,7 +18,7 @@
 
 プログラムの知識がなくても大丈夫です！以下のステップで始められます。
 
-1. **ダウンロード**: [FollowerList_v1.0.zip](bin/FollowerList_v1.0.zip) をクリックしてダウンロードします。
+1. **ダウンロード**: [FollowerList_v1.0.zip](https://github.com/BLUE000/TwitchFollowerList/releases/download/v1.0/FollowerList_v1.0.zip) をクリックしてダウンロードします。
 2. **準備**: ダウンロードした ZIP ファイルを右クリックして「すべて展開」を選び、フォルダを取り出します。
 3. **実行**: フォルダの中にある `FollowerList.exe` をダブルクリックして起動します。
 4. **ログイン**: 画面上の `Twitch Login` ボタンを押すとブラウザが開きます。Twitch でアクセスを許可してください。
