@@ -75,6 +75,20 @@ public slots:
     void handleFollowerUnassigned(const QString& szUsrId, int iGrpId);
 
     /**
+     * @brief 複数フォロワーのグループ割り当て処理。
+     * @param lstUsrIds ユーザー ID リスト。
+     * @param iGrpId グループ ID。
+     */
+    void handleFollowersAssignedToGroup(const QStringList& lstUsrIds, int iGrpId);
+
+    /**
+     * @brief 複数フォロワーのグループ解除処理。
+     * @param lstUsrIds ユーザー ID リスト。
+     * @param iGrpId グループ ID。
+     */
+    void handleFollowersUnassignedFromGroup(const QStringList& lstUsrIds, int iGrpId);
+
+    /**
      * @brief 新規グループ作成処理。
      * @param szGrpNm グループ名。
      */
@@ -129,10 +143,22 @@ private:
     int iSlctdGrpId;                      ///< 現在 UI で選択されているグループ ID
 
     /**
+     * @brief 現在のフォロワーリストからグループ別の件数を集計する。
+     * @return グループIDをキー、件数を値とするマップ。
+     */
+    QMap<int, int> calculateGroupCounts() const;
+
+    /**
      * @brief アクションを履歴に追加し、適用する。
      * @param oActn 記録するアクションレコード。
      */
     void pushAction(const ActionRecord& oActn);
+
+    /**
+     * @brief アクションリストを履歴に追加し、適用する。
+     * @param lstActions 記録するアクションレコードリスト。
+     */
+    void pushActions(const QList<ActionRecord>& lstActions);
 
     /**
      * @brief アクションを現在の状態に適用する。

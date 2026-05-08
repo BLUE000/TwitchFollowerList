@@ -34,7 +34,8 @@ AppController::AppController(MainWindow *pMainWindow, QObject *pParent)
 void AppController::initialize() {
     connect(pView, &MainWindow::loginRequested, this, &AppController::handleLoginRequest);
     connect(pView, &MainWindow::followerAssignedToGroup, this, &AppController::handleFollowerAssigned);
-    connect(pView, &MainWindow::followerUnassignedFromGroup, this, &AppController::handleFollowerUnassigned);
+    connect(pView, &MainWindow::followersAssignedToGroup, this, &AppController::handleFollowersAssignedToGroup);
+    connect(pView, &MainWindow::followersUnassignedFromGroup, this, &AppController::handleFollowersUnassignedFromGroup);
     connect(pView, &MainWindow::groupCreated, this, &AppController::handleGroupCreated);
     connect(pView, &MainWindow::groupDeleted, this, &AppController::handleGroupDeleted);
     connect(pView, &MainWindow::undoRequested, this, &AppController::handleUndoRequested);
@@ -73,7 +74,7 @@ void AppController::initialize() {
         iNxtGrpId = 1;
     }
     
-    pView->setGroups(mapCrntGrps);
+    pView->setGroups(mapCrntGrps, calculateGroupCounts());
     pView->setFollowers(lstCrntFllwrs, mapCrntGrps);
     pView->setUndoRedoEnabled(false, false);
 }
@@ -91,7 +92,7 @@ void AppController::handleLoginRequest() {
         // 500ms 後に再描画とビジー解除を実行（HSP の wait 50 相当）
         QTimer::singleShot(SMART_REFRESH_WAIT_MS, this, [this]() {
             pView->setFollowers(lstCrntFllwrs, mapCrntGrps);
-            pView->setGroups(mapCrntGrps);
+            pView->setGroups(mapCrntGrps, calculateGroupCounts());
             pView->setLoginStatus(true); // これによりステータスバーが「更新済み」になる
             setBusy(false);
         });
@@ -185,12 +186,31 @@ void AppController::handleFollowersFetched(const QList<TwitchFollower>& lstFtchd
 void AppController::pushAction(const ActionRecord& oActn) {
     if (iHstryCrsr < lstActnHstry.size() - 1) {
         lstActnHstry.erase(lstActnHstry.begin() + iHstryCrsr + 1, lstActnHstry.end());
-    } else { /* skip */ }
+    }
     
     lstActnHstry.append(oActn);
     iHstryCrsr = lstActnHstry.size() - 1;
     
     applyAction(oActn);
+    updateView();
+    saveAllState();
+}
+
+void AppController::pushActions(const QList<ActionRecord>& lstActions) {
+    if (lstActions.isEmpty()) {
+        return;
+    }
+
+    if (iHstryCrsr < lstActnHstry.size() - 1) {
+        lstActnHstry.erase(lstActnHstry.begin() + iHstryCrsr + 1, lstActnHstry.end());
+    }
+
+    for (const auto& oActn : lstActions) {
+        lstActnHstry.append(oActn);
+        applyAction(oActn);
+    }
+    iHstryCrsr = lstActnHstry.size() - 1;
+
     updateView();
     saveAllState();
 }
@@ -271,6 +291,52 @@ void AppController::handleGroupCreated(const QString& szGrpNm) {
     pushAction(oAct);
 }
 
+
+void AppController::handleFollowersAssignedToGroup(const QStringList& lstUsrIds, int iGrpId) {
+    QList<ActionRecord> lstActs;
+    for (const QString& szId : lstUsrIds) {
+        ActionRecord oAct;
+        oAct.type = ActionRecord::AssignGroup;
+        oAct.targetUserId = szId;
+        oAct.targetGroupId = iGrpId;
+        lstActs.append(oAct);
+    }
+    pushActions(lstActs);
+}
+
+void AppController::handleFollowersUnassignedFromGroup(const QStringList& lstUsrIds, int iGrpId) {
+    QList<ActionRecord> lstActs;
+    for (const QString& szId : lstUsrIds) {
+        // 現在のグループ状態を検索
+        QList<int> lstPrev;
+        bool bFound = false;
+        for (const auto& oF : lstCrntFllwrs) {
+            if (oF.userId == szId) {
+                lstPrev = oF.groupIds;
+                if (iGrpId == -1) {
+                    if (!oF.groupIds.isEmpty()) {
+                        bFound = true;
+                    }
+                } else if (oF.groupIds.contains(iGrpId)) {
+                    bFound = true;
+                }
+                break;
+            }
+        }
+        if (!bFound) {
+            continue;
+        }
+
+        ActionRecord oAct;
+        oAct.type = ActionRecord::UnassignGroup;
+        oAct.targetUserId = szId;
+        oAct.targetGroupId = iGrpId;
+        oAct.prevGroupIds = lstPrev;
+        lstActs.append(oAct);
+    }
+    pushActions(lstActs);
+}
+
 /**
  * @brief UI からのグループ削除要求をハンドルする。
  * @param iGrpId グループ ID。
@@ -314,14 +380,20 @@ void AppController::handleFollowerUnassigned(const QString& szUsrId, int iGrpId)
         if (oF.userId == szUsrId) {
             lstPrev = oF.groupIds;
             if (iGrpId == -1) {
-                if (!oF.groupIds.isEmpty()) bFound = true;
+                if (!oF.groupIds.isEmpty()) {
+                    bFound = true;
+                }
             } else if (oF.groupIds.contains(iGrpId)) {
                 bFound = true;
             }
-            if (bFound) break;
+            if (bFound) {
+                break;
+            }
         }
     }
-    if (!bFound) return;
+    if (!bFound) {
+        return;
+    }
 
     ActionRecord oAct;
     oAct.type = ActionRecord::UnassignGroup;
@@ -420,7 +492,7 @@ void AppController::handleOutputRequested() {
             oOut.setEncoding(QStringConverter::Utf8);
             oOut.setGenerateByteOrderMark(true); // Excel 用に BOM を付与
 
-            oOut << "表示名,ユーザー名,ユーザーID,グループ\n";
+            oOut << "表示名,ユーザー名,ユーザーID,チャンネルURL,グループ\n";
             for (const auto& oF : lstSub) {
                 QStringList lstGNms;
                 for (int iGid : oF.groupIds) {
@@ -428,8 +500,9 @@ void AppController::handleOutputRequested() {
                     else if (iGid == FileManager::iGRP_ID_UNASSIGNED) lstGNms << "未所属";
                 }
                 QString szGNms = lstGNms.join(", ");
-                oOut << QString("\"%1\",\"%2\",\"'%3\",\"%4\"\n")
-                            .arg(oF.userName, oF.userLogin, oF.userId, szGNms);
+                QString szUrl = "https://twitch.tv/" + oF.userLogin;
+                oOut << QString("\"%1\",\"%2\",\"'%3\",\"%4\",\"%5\"\n")
+                            .arg(oF.userName, oF.userLogin, oF.userId, szUrl, szGNms);
             }
             oFile.close();
         }
@@ -465,7 +538,7 @@ void AppController::updateView() {
     }
     
     pView->setFollowers(lstFiltered, mapCrntGrps);
-    pView->setGroups(mapCrntGrps);
+    pView->setGroups(mapCrntGrps, calculateGroupCounts());
     
     bool bCanWnd = (iHstryCrsr >= 0);
     bool bCanRd = (iHstryCrsr < lstActnHstry.size() - 1);
@@ -529,4 +602,32 @@ void AppController::log(int id) {
     } else if (m_infoTable.contains(id)) {
         Logger::output("INFO", m_infoTable[id]);
     }
+}
+/**
+ * @brief 現在のフォロワーリストからグループ別の件数を集計する。
+ */
+QMap<int, int> AppController::calculateGroupCounts() const {
+    QMap<int, int> mapCounts;
+    
+    // すべて
+    mapCounts[FileManager::iGRP_ID_ALL] = lstCrntFllwrs.size();
+    
+    // 削除済み
+    mapCounts[FileManager::iGRP_ID_DELETED] = lstCrntDltdUsrs.size();
+    
+    // 未所属
+    int iUnassigned = 0;
+    for (const auto& oF : lstCrntFllwrs) {
+        if (oF.groupIds.isEmpty()) {
+            iUnassigned++;
+        }
+        
+        // 各グループ
+        for (int iGid : oF.groupIds) {
+            mapCounts[iGid]++;
+        }
+    }
+    mapCounts[FileManager::iGRP_ID_UNASSIGNED] = iUnassigned;
+    
+    return mapCounts;
 }

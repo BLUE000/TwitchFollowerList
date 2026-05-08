@@ -28,6 +28,13 @@ class MainWindow : public QMainWindow {
 public:
     static const int INVALID_ID = -999; ///< 無効な ID を示す定数
 
+    // 列インデックスの定義
+    static const int COL_DISPLAY_NAME = 0;
+    static const int COL_USER_LOGIN   = 1;
+    static const int COL_USER_ID      = 2;
+    static const int COL_CHANNEL_URL  = 3;
+    static const int COL_GROUPS        = 4;
+
     /**
      * @brief コンストラクタ。
      * @param pParent 親オブジェクト。
@@ -54,8 +61,9 @@ public:
     /**
      * @brief グループ一覧を UI に反映する。
      * @param mapGrps 表示対象のグループマップ。
+     * @param mapCounts 各グループの所属件数マップ。
      */
-    void setGroups(const QMap<int, QString>& mapGrps);
+    void setGroups(const QMap<int, QString>& mapGrps, const QMap<int, int>& mapCounts);
 
     /**
      * @brief Undo/Redo ボタンの有効無効を切り替える。
@@ -88,6 +96,9 @@ signals:
      * @param iGrpId グループ ID。
      */
     void followerUnassignedFromGroup(const QString& szUsrId, int iGrpId);
+
+    void followersAssignedToGroup(const QStringList& userIds, int groupId);
+    void followersUnassignedFromGroup(const QStringList& userIds, int groupId);
 
     /**
      * @brief グループ作成要求のシグナル。
