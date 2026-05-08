@@ -26,6 +26,8 @@ class MainWindow : public QMainWindow {
     Q_OBJECT
 
 public:
+    static const int INVALID_ID = -999; ///< 無効な ID を示す定数
+
     /**
      * @brief コンストラクタ。
      * @param pParent 親オブジェクト。

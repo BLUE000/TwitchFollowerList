@@ -213,12 +213,13 @@ void MainWindow::setupUiExtra() {
  */
 void MainWindow::setLoginStatus(bool bLgned) {
     if (bLgned) {
-        pUi->statusbar->showMessage("ログイン済み");
-        pUi->twitchLoginButton->setEnabled(false);
+        pUi->statusbar->showMessage("Twitch ログイン済み");
+        pUi->twitchLoginButton->setText("Update (更新)");
     } else {
         pUi->statusbar->showMessage("未ログイン");
-        pUi->twitchLoginButton->setEnabled(true);
+        pUi->twitchLoginButton->setText("Twitch Login");
     }
+    pUi->twitchLoginButton->setEnabled(true);
 }
 
 /**
@@ -259,7 +260,7 @@ void MainWindow::setFollowers(const QList<TwitchFollower>& lstFllwrs, const QMap
  */
 void MainWindow::setGroups(const QMap<int, QString>& mapGrps) {
     // 現在選択されているグループ ID を記憶
-    int iSlctdId = -999;
+    int iSlctdId = INVALID_ID;
     QModelIndexList lstSlctd = pUi->outDirTreeView->selectionModel()->selectedIndexes();
     if (!lstSlctd.isEmpty()) {
         iSlctdId = lstSlctd.first().data(Qt::UserRole).toInt();
@@ -309,7 +310,7 @@ void MainWindow::setGroups(const QMap<int, QString>& mapGrps) {
     pUi->outDirTreeView->expandAll();
 
     // 選択状態の復元
-    if (iSlctdId != -999) {
+    if (iSlctdId != INVALID_ID) {
         // 全ノードを探索して一致する ID を探す
         QList<QStandardItem*> lstSearch;
         for(int i=0; i<pMdlGrp->rowCount(); ++i) lstSearch << pMdlGrp->item(i);

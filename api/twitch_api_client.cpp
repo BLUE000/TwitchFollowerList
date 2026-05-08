@@ -69,9 +69,9 @@ void TwitchApiClient::fetchFollowers() {
 void TwitchApiClient::fetchNextFollowersPage(const QString& szCursor) {
     QString szUrl;
     if (szCursor.isEmpty()) {
-        szUrl = QString(szURL_FOLLOWERS).arg(szCrntUsrId);
+        szUrl = QString(szURL_FOLLOWERS).arg(szCrntUsrId).arg(PAGE_SIZE);
     } else {
-        szUrl = QString(szURL_FOLLOWERS_NEXT).arg(szCrntUsrId).arg(szCursor);
+        szUrl = QString(szURL_FOLLOWERS_NEXT).arg(szCrntUsrId).arg(PAGE_SIZE).arg(szCursor);
     }
     
     QNetworkRequest oReq;

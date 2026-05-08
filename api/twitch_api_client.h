@@ -19,6 +19,7 @@
 class TwitchApiClient : public QObject {
     Q_OBJECT
 public:
+    static const int PAGE_SIZE = 100; ///< 1ページあたりの取得件数
     /**
      * @brief コンストラクタ。
      * @param pParent 親オブジェクト。
@@ -78,8 +79,8 @@ private:
 
     // API エンドポイント URL
     static constexpr const char* szURL_USERS     = "https://api.twitch.tv/helix/users";
-    static constexpr const char* szURL_FOLLOWERS = "https://api.twitch.tv/helix/channels/followers?broadcaster_id=%1&first=100";
-    static constexpr const char* szURL_FOLLOWERS_NEXT = "https://api.twitch.tv/helix/channels/followers?broadcaster_id=%1&first=100&after=%2";
+    static constexpr const char* szURL_FOLLOWERS = "https://api.twitch.tv/helix/channels/followers?broadcaster_id=%1&first=%2";
+    static constexpr const char* szURL_FOLLOWERS_NEXT = "https://api.twitch.tv/helix/channels/followers?broadcaster_id=%1&first=%2&after=%3";
 
     // JSON キー
     static constexpr const char* szJS_DATA       = "data";

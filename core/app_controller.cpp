@@ -83,8 +83,23 @@ void AppController::initialize() {
  */
 void AppController::handleLoginRequest() {
     log(INF_LOGIN_START);
+    // トークンが有効であれば「スマート・リフレッシュ（フリ）」を実行
+    if (pAuthntctr->isTokenValid()) {
+        log(INF_LOGIN_START);
+        setBusy(true); // 一瞬ボタンを無効化して「処理中」を見せる
+
+        // 500ms 後に再描画とビジー解除を実行（HSP の wait 50 相当）
+        QTimer::singleShot(SMART_REFRESH_WAIT_MS, this, [this]() {
+            pView->setFollowers(lstCrntFllwrs, mapCrntGrps);
+            pView->setGroups(mapCrntGrps);
+            pView->setLoginStatus(true); // これによりステータスバーが「更新済み」になる
+            setBusy(false);
+        });
+        return;
+    }
+
     setBusy(true);
-    pTmoutTmr->start(30000); // 30s timeout
+    pTmoutTmr->start(LOGIN_TIMEOUT_MS);    // 30s timeout
     pAuthntctr->login();
 }
 

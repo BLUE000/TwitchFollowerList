@@ -14,7 +14,8 @@
  * @param pParent 親オブジェクト。
  */
 TwitchAuthenticator::TwitchAuthenticator(QObject *pParent)
-    : QObject(pParent), szClntId("lfyil72vhg1s7baymtguh4g06h93qb"), szRdrctUri("http://localhost:8080")
+    : QObject(pParent), szClntId("lfyil72vhg1s7baymtguh4g06h93qb"), 
+      szRdrctUri(QString("http://localhost:%1").arg(AUTH_PORT)), iExprsIn(0)
 {
     pTcpSrvr = new QTcpServer(this);
     connect(pTcpSrvr, &QTcpServer::newConnection, this, &TwitchAuthenticator::onNewConnection);
@@ -25,7 +26,7 @@ TwitchAuthenticator::TwitchAuthenticator(QObject *pParent)
  */
 void TwitchAuthenticator::login() {
     if (!pTcpSrvr->isListening()) {
-        pTcpSrvr->listen(QHostAddress::LocalHost, 8080);
+        pTcpSrvr->listen(QHostAddress::LocalHost, AUTH_PORT);
     } else {
         // Already listening
     }
@@ -39,6 +40,15 @@ void TwitchAuthenticator::login() {
                     .arg(szRdrctUri);
     
     QDesktopServices::openUrl(QUrl(szUrl));
+}
+
+/**
+ * @brief トークンが現在有効かどうかを判定する。
+ */
+bool TwitchAuthenticator::isTokenValid() const {
+    if (oDtGrntd.isNull() || iExprsIn <= 0) return false;
+    // 現在時刻が (取得時刻 + 有効期間) より前であれば有効
+    return oDtGrntd.addSecs(iExprsIn) > QDateTime::currentDateTime();
 }
 
 void TwitchAuthenticator::onNewConnection() {
@@ -56,6 +66,17 @@ void TwitchAuthenticator::onNewConnection() {
                 int iIdx = szReq.indexOf("access_token=");
                 if (iIdx != -1) {
                     QString szTkn = szReq.mid(iIdx + 13).split(' ').first().split('&').first();
+                    
+                    // 有効期限 (expires_in) も抽出
+                    int iExpIdx = szReq.indexOf("expires_in=");
+                    if (iExpIdx != -1) {
+                        iExprsIn = szReq.mid(iExpIdx + 11).split(' ').first().split('&').first().toInt();
+                    } else {
+                        // 取得できない場合はデフォルト値を使用
+                        iExprsIn = DEFAULT_EXPIRES_IN;
+                    }
+                    oDtGrntd = QDateTime::currentDateTime();
+                    
                     emit authCompleted(szTkn);
                 }
 

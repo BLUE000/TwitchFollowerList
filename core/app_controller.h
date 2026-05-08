@@ -22,6 +22,8 @@ class QTimer;
 class AppController : public QObject {
     Q_OBJECT
 public:
+    static const int LOGIN_TIMEOUT_MS = 30000; ///< ログインタイムアウト（30秒）
+    static const int SMART_REFRESH_WAIT_MS = 500; ///< 更新演出用のウェイト（0.5秒）
     /**
      * @brief コンストラクタ。
      * @param pMainWindow メインウィンドウへのポインタ。
