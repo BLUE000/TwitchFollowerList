@@ -59,7 +59,8 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
             
             if (idxTrgt.isValid()) {
                 int iGid = idxTrgt.data(Qt::UserRole).toInt();
-                if (iGid >= 0 || iGid == FileManager::iGRP_ID_UNASSIGNED) {
+                // ユーザーグループ(>=0) または 未所属(-2) または すべて(-1) へのドロップを許可
+                if (iGid >= 0 || iGid == FileManager::iGRP_ID_UNASSIGNED || iGid == FileManager::iGRP_ID_ALL) {
                     QItemSelectionModel *pSlctn = pUi->followerListView->selectionModel();
                     QModelIndexList lstIdxs = pSlctn->selectedIndexes();
                     QSet<int> setRows;
@@ -84,8 +85,10 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
 
                     if (!lstTargetIds.isEmpty()) {
                         if (iGid >= 0) {
+                            // 特定グループへの割り当て
                             emit followersAssignedToGroup(lstTargetIds, iGid);
                         } else {
+                            // 未所属(-2) または すべて(-1) へのドロップは全解除とみなす
                             emit followersUnassignedFromGroup(lstTargetIds, -1);
                         }
                     }
@@ -115,11 +118,28 @@ void MainWindow::onFollowerListContextMenu(const QPoint& pos) {
         return;
     }
 
-    QString szUsrId = pMdlFllwr->item(index.row(), COL_USER_ID)->text(); // ID列
-    QString szDisplayName = pMdlFllwr->item(index.row(), COL_DISPLAY_NAME)->text();
+    // 選択されている全てのユーザー ID を収集
+    QItemSelectionModel *pSlctn = pUi->followerListView->selectionModel();
+    QModelIndexList lstIdxs = pSlctn->selectedIndexes();
+    QSet<int> setRows;
+    for (const QModelIndex& idx : lstIdxs) {
+        setRows.insert(idx.row());
+    }
+    if (setRows.isEmpty()) {
+        setRows.insert(index.row());
+    }
+
+    QStringList lstTargetIds;
+    for (int iRow : setRows) {
+        lstTargetIds << pMdlFllwr->item(iRow, COL_USER_ID)->text();
+    }
 
     QMenu oMenu(this);
-    oMenu.setTitle(szDisplayName);
+    if (lstTargetIds.size() > 1) {
+        oMenu.setTitle(QString("%1 名を選択中").arg(lstTargetIds.size()));
+    } else {
+        oMenu.setTitle(pMdlFllwr->item(index.row(), COL_DISPLAY_NAME)->text());
+    }
 
     // グループに追加サブメニュー
     QMenu *pSubAdd = oMenu.addMenu("グループに追加");
@@ -139,36 +159,44 @@ void MainWindow::onFollowerListContextMenu(const QPoint& pos) {
             int iGid = pChild->data(Qt::UserRole).toInt();
             if (iGid >= 0) { // ユーザー定義グループのみ
                 QAction *pAct = pSubAdd->addAction(pChild->text());
-                connect(pAct, &QAction::triggered, [this, szUsrId, iGid]() {
-                    emit followerAssignedToGroup(szUsrId, iGid);
+                connect(pAct, &QAction::triggered, [this, lstTargetIds, iGid]() {
+                    emit followersAssignedToGroup(lstTargetIds, iGid);
                 });
             }
         }
     }
 
     // グループから解除メニュー
-    QStandardItem *pItmGrp = pMdlFllwr->item(index.row(), COL_GROUPS);
-    QString szGidsRaw = pItmGrp->data(Qt::UserRole).toString(); // UserRole から ID リストを取得
-    if (!szGidsRaw.isEmpty()) {
-        QMenu *pSubRem = oMenu.addMenu("グループから解除");
-        QStringList lstGids = szGidsRaw.split(",", Qt::SkipEmptyParts);
-        for (const QString& szGid : lstGids) {
-            int iGid = szGid.toInt();
-            // IDから名前を逆引き（ツリーから）
-            QString szGNm = "Group " + szGid;
-            if (pItmAll) {
-                for (int j = 0; j < pItmAll->rowCount(); ++j) {
-                    if (pItmAll->child(j)->data(Qt::UserRole).toInt() == iGid) {
-                        szGNm = pItmAll->child(j)->text();
-                        break;
+    // 単一選択の場合は所属グループのみ表示、複数選択の場合は全解除
+    if (lstTargetIds.size() == 1) {
+        QStandardItem *pItmGrp = pMdlFllwr->item(index.row(), COL_GROUPS);
+        QString szGidsRaw = pItmGrp->data(Qt::UserRole).toString();
+        if (!szGidsRaw.isEmpty()) {
+            QMenu *pSubRem = oMenu.addMenu("グループから解除");
+            QStringList lstGids = szGidsRaw.split(",", Qt::SkipEmptyParts);
+            for (const QString& szGid : lstGids) {
+                int iGid = szGid.toInt();
+                QString szGNm = "Group " + szGid;
+                if (pItmAll) {
+                    for (int j = 0; j < pItmAll->rowCount(); ++j) {
+                        if (pItmAll->child(j)->data(Qt::UserRole).toInt() == iGid) {
+                            szGNm = pItmAll->child(j)->text();
+                            break;
+                        }
                     }
                 }
+                QAction *pAct = pSubRem->addAction(szGNm);
+                connect(pAct, &QAction::triggered, [this, lstTargetIds, iGid]() {
+                    emit followersUnassignedFromGroup(lstTargetIds, iGid);
+                });
             }
-            QAction *pAct = pSubRem->addAction(szGNm);
-            connect(pAct, &QAction::triggered, [this, szUsrId, iGid]() {
-                emit followerUnassignedFromGroup(szUsrId, iGid);
-            });
         }
+    } else {
+        // 複数選択時は「すべてのグループから解除」を表示
+        QAction *pActRemAll = oMenu.addAction("選択したユーザーを全グループから解除");
+        connect(pActRemAll, &QAction::triggered, [this, lstTargetIds]() {
+            emit followersUnassignedFromGroup(lstTargetIds, -1);
+        });
     }
 
     oMenu.exec(pUi->followerListView->viewport()->mapToGlobal(pos));
