@@ -14,7 +14,7 @@
  * @param pParent 親オブジェクト。
  */
 TwitchAuthenticator::TwitchAuthenticator(QObject *pParent)
-    : QObject(pParent), szClntId("lfyil72vhg1s7baymtguh4g06h93qb"), 
+    : QObject(pParent), szClntId(TWITCH_CLIENT_ID), 
       szRdrctUri(QString("http://localhost:%1").arg(AUTH_PORT)), iExprsIn(0)
 {
     pTcpSrvr = new QTcpServer(this);

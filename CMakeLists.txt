@@ -11,6 +11,16 @@ set(CMAKE_AUTOUIC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets Network LinguistTools)
 
+# クライアントIDの読み込み (Git管理外のファイルから取得)
+set(CLIENT_ID_FILE "${CMAKE_CURRENT_SOURCE_DIR}/TWITCH_CLIENT_ID.txt")
+if(EXISTS "${CLIENT_ID_FILE}")
+    file(READ "${CLIENT_ID_FILE}" TWITCH_CLIENT_ID_VAL)
+    string(STRIP "${TWITCH_CLIENT_ID_VAL}" TWITCH_CLIENT_ID_VAL)
+else()
+    set(TWITCH_CLIENT_ID_VAL "REPLACE_ME")
+    message(WARNING "TWITCH_CLIENT_ID.txt not found. Using placeholder.")
+endif()
+
 # ソースファイルの定義
 file(GLOB_RECURSE SOURCES 
     api/twitch_authenticator.h api/twitch_authenticator.cpp
@@ -43,6 +53,9 @@ target_link_libraries(FollowerList PRIVATE
     Qt6::Network
     "${CMAKE_CURRENT_SOURCE_DIR}/Lib/TransCipher/lib/libTransCipher.dll.a"
 )
+
+# コンパイル定義にクライアントIDを注入
+target_compile_definitions(FollowerList PRIVATE TWITCH_CLIENT_ID="${TWITCH_CLIENT_ID_VAL}")
 
 # 実行ファイルと同じディレクトリに DLL をコピーする設定
 add_custom_command(TARGET FollowerList POST_BUILD

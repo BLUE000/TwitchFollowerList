@@ -26,6 +26,7 @@ CipherLog.txt
 # AI Files
 .ai_rules_local.md
 WIP_STATE.md
+TWITCH_CLIENT_ID.txt
 
 # External Libraries (Keep binaries in Lib)
 !Lib/TransCipher/lib/*.dll
