@@ -75,10 +75,22 @@
 ### 依存ライブラリ
 - [TransCipher](Lib/TransCipher): 独自開発の暗号化ライブラリ（プロジェクトに同梱されています）。
 
+### 事前準備：Twitch API Client ID の取得
+ビルド前に、あなた自身の Twitch Client ID を用意する必要があります。
+
+1. [Twitch Developer Console](https://dev.twitch.tv/console) にログインします。
+2. `Register Your Application` から新しいアプリを登録します。
+   - **OAuth Redirect URLs**: `http://localhost:3000` を追加してください。
+   - **Category**: `Chat Bot` または `Application Integration` を選択。
+3. 作成されたアプリの `Client ID` をコピーします。
+4. プロジェクトのルートディレクトリに `TWITCH_CLIENT_ID.txt` という名前のファイルを作成し、コピーした ID を貼り付けて保存します。
+   - ※このファイルは `.gitignore` により Git 管理から除外されます。
+
 ### ビルド手順
 1. このリポジトリをクローンします。
-2. Qt Creator またはコマンドラインから CMake プロジェクトとして開きます。
-3. 以下のコマンドでビルド可能です：
+2. 上記の `TWITCH_CLIENT_ID.txt` が存在することを確認します。
+3. Qt Creator またはコマンドラインから CMake プロジェクトとして開きます。
+4. 以下のコマンドでビルド可能です：
    ```bash
    mkdir build
    cd build
