@@ -1,6 +1,0 @@
-gmock_autogen/timestamp: \
-	D:/prog/C++/FollowerList/build_test/_deps/googletest-src/googlemock/CMakeLists.txt \
-	D:/prog/C++/FollowerList/build_test/_deps/googletest-src/googlemock/cmake/gmock.pc.in \
-	D:/prog/C++/FollowerList/build_test/_deps/googletest-src/googlemock/cmake/gmock_main.pc.in \
-	D:/prog/C++/FollowerList/build_test/_deps/googletest-src/googlemock/src/gmock-all.cc \
-	C:/tmp/mingw64/bin/cmake.exe

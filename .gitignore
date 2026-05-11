@@ -6,6 +6,9 @@ Config/
 build_cmd/
 build_bash_Debug/
 build_bash_Release/
+build_test/
+compile_commands.json
+.clangd/
 
 # Qt / IDE
 *.user
