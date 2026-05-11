@@ -22,12 +22,17 @@
   - `void redoRequested()`
   - `void groupCreated(const QString& groupName)`
   - `void groupDeleted(int groupId)`
+  - `void groupRenamed(int groupId, const QString& newName)`
 - **スロット**:
   - `void on_twitchLoginButton_clicked()`
   - `void onLoginSuccess()`
   - `void updateFollowerList(const QList<TwitchFollower>& followers)`
   - `void updateGroupTree(const QMap<int, QString>& groups)`
   - `void on_outDirTreeView_clicked(const QModelIndex &index)` (ツリークリックでリストの絞り込みを実行)
+  - `void on_group_tree_context_menu(const QPoint& pos)` (リネーム・削除メニュー)
+- **データアクセス規約**:
+  - リストビューの各行アイテム（第0列等）に `Qt::UserRole` で `userId` を格納する。
+  - プログラム内では `COL_USER_ID` 等の定数による列直接参照を極力避け、`UserRole` からのデータ取得を優先する。
 - **イベント**:
   - `void dropEvent(QDropEvent *event)` (リストからツリーへのDnD処理)
 
@@ -70,11 +75,12 @@
 - 操作の種類、対象、および変更前後の値を保持。
 - スタック構造 (`std::deque` または `QStack`) で保持し、最新の操作が先頭に来るように管理。
 - 新規操作が行われた際、リドゥ用スタックがある場合は破棄する。
-- `enum ActionType { AssignGroup, UnassignGroup, CreateGroup, DeleteGroup }`
+- `enum ActionType { AssignGroup, UnassignGroup, CreateGroup, DeleteGroup, RenameGroup }`
 - `ActionType type`
 - `QString targetUserId`
 - `int targetGroupId`
-- `QString targetGroupName`
+- `QString targetGroupName` (新規作成、または変更後の名前)
+- `QString prevGroupName` (変更前の名前、Undo用)
 
 ---
 
