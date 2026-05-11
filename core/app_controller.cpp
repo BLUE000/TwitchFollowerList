@@ -38,6 +38,7 @@ void AppController::initialize() {
     connect(pView, &MainWindow::followersUnassignedFromGroup, this, &AppController::handleFollowersUnassignedFromGroup);
     connect(pView, &MainWindow::groupCreated, this, &AppController::handleGroupCreated);
     connect(pView, &MainWindow::groupDeleted, this, &AppController::handleGroupDeleted);
+    connect(pView, &MainWindow::groupRenamed, this, &AppController::handle_group_renamed);
     connect(pView, &MainWindow::undoRequested, this, &AppController::handleUndoRequested);
     connect(pView, &MainWindow::redoRequested, this, &AppController::handleRedoRequested);
     connect(pView, &MainWindow::groupSelected, this, &AppController::handleGroupSelected);
@@ -250,6 +251,8 @@ void AppController::applyAction(const ActionRecord& oActn) {
                 break;
             } else { /* skip */ }
         }
+    } else if (oActn.type == ActionRecord::RenameGroup) {
+        mapCrntGrps.insert(oActn.targetGroupId, oActn.targetGroupName);
     } else { /* skip */ }
 }
 
@@ -276,6 +279,8 @@ void AppController::revertAction(const ActionRecord& oActn) {
                 break;
             } else { /* skip */ }
         }
+    } else if (oActn.type == ActionRecord::RenameGroup) {
+        mapCrntGrps.insert(oActn.targetGroupId, oActn.prevGroupName);
     } else { /* skip */ }
 }
 
@@ -630,4 +635,22 @@ QMap<int, int> AppController::calculateGroupCounts() const {
     mapCounts[FileManager::iGRP_ID_UNASSIGNED] = iUnassigned;
     
     return mapCounts;
+}
+
+/**
+ * @brief UI からのグループ名変更要求をハンドルする。
+ * @param iGrpId 対象のグループ ID。
+ * @param szNewNm 新しいグループ名。
+ */
+void AppController::handle_group_renamed(int iGrpId, const QString &szNewNm) {
+    if (!mapCrntGrps.contains(iGrpId)) {
+        return;
+    }
+
+    ActionRecord oAct;
+    oAct.type = ActionRecord::RenameGroup;
+    oAct.targetGroupId = iGrpId;
+    oAct.targetGroupName = szNewNm;
+    oAct.prevGroupName = mapCrntGrps.value(iGrpId);
+    pushAction(oAct);
 }

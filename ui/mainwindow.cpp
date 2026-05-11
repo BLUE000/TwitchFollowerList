@@ -4,268 +4,287 @@
  */
 
 #include "mainwindow.h"
-#include "ui_mainwindow.h"
 #include "api/file_manager.h"
-#include <QStandardItemModel>
-#include <QInputDialog>
-#include <QMessageBox>
-#include <QPushButton>
-#include <QMenu>
+#include "ui_mainwindow.h"
 #include <QContextMenuEvent>
-#include <QDropEvent>
-#include <QDragMoveEvent>
-#include <QMimeData>
 #include <QDesktopServices>
-#include <QUrl>
+#include <QDragMoveEvent>
+#include <QDropEvent>
+#include <QInputDialog>
+#include <QMenu>
+#include <QMessageBox>
+#include <QMimeData>
+#include <QPushButton>
 #include <QSet>
+#include <QStandardItemModel>
+#include <QUrl>
 
 /**
  * @brief コンストラクタ。UI のセットアップを行う。
  * @param pParent 親オブジェクト。
  */
 MainWindow::MainWindow(QWidget *pParent)
-    : QMainWindow(pParent), pUi(new Ui::MainWindow)
-{
-    pUi->setupUi(this);
-    setupUiExtra();
+    : QMainWindow(pParent), pUi(new Ui::MainWindow) {
+  pUi->setupUi(this);
+  setupUiExtra();
 }
 
-MainWindow::~MainWindow() {
-    delete pUi;
-}
+MainWindow::~MainWindow() { delete pUi; }
 
 /**
  * @brief ツリービューの項目がクリックされた際の処理。
  * @param index クリックされたインデックス。
  */
-void MainWindow::onGroupTreeClicked(const QModelIndex& index) {
-    int iGrpId = index.data(Qt::UserRole).toInt();
-    emit groupSelected(iGrpId);
+void MainWindow::onGroupTreeClicked(const QModelIndex &index) {
+  int iGrpId = index.data(Qt::UserRole).toInt();
+  emit groupSelected(iGrpId);
 }
 
 /**
  * @brief ドラッグ＆ドロップのドロップ処理をハンドルするイベントフィルター。
  */
 bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
-    if (obj == pUi->outDirTreeView || obj == pUi->outDirTreeView->viewport()) {
-        if (event->type() == QEvent::DragEnter || event->type() == QEvent::DragMove) {
-            QDragMoveEvent *pDrgMv = static_cast<QDragMoveEvent*>(event);
-            pDrgMv->acceptProposedAction();
-            return true;
-        }
-        if (event->type() == QEvent::Drop) {
-            QDropEvent *pDrpEv = static_cast<QDropEvent*>(event);
-            QModelIndex idxTrgt = pUi->outDirTreeView->indexAt(pDrpEv->position().toPoint());
-            
-            if (idxTrgt.isValid()) {
-                int iGid = idxTrgt.data(Qt::UserRole).toInt();
-                // ユーザーグループ(>=0) または 未所属(-2) または すべて(-1) へのドロップを許可
-                if (iGid >= 0 || iGid == FileManager::iGRP_ID_UNASSIGNED || iGid == FileManager::iGRP_ID_ALL) {
-                    QItemSelectionModel *pSlctn = pUi->followerListView->selectionModel();
-                    QModelIndexList lstIdxs = pSlctn->selectedIndexes();
-                    QSet<int> setRows;
-                    for (const QModelIndex& idx : lstIdxs) {
-                        setRows.insert(idx.row());
-                    }
-
-                    if (setRows.isEmpty() && pUi->followerListView->currentIndex().isValid()) {
-                        setRows.insert(pUi->followerListView->currentIndex().row());
-                    }
-
-                    QStringList lstTargetIds;
-                    for (int iRow : setRows) {
-                        QStandardItem *pItmId = pMdlFllwr->item(iRow, COL_USER_ID);
-                        if (pItmId) {
-                            QString szUsrId = pItmId->text().trimmed();
-                            if (!szUsrId.isEmpty()) {
-                                lstTargetIds << szUsrId;
-                            }
-                        }
-                    }
-
-                    if (!lstTargetIds.isEmpty()) {
-                        if (iGid >= 0) {
-                            // 特定グループへの割り当て
-                            emit followersAssignedToGroup(lstTargetIds, iGid);
-                        } else {
-                            // 未所属(-2) または すべて(-1) へのドロップは全解除とみなす
-                            emit followersUnassignedFromGroup(lstTargetIds, -1);
-                        }
-                    }
-                }
-            }
-            pDrpEv->setDropAction(Qt::IgnoreAction);
-            pDrpEv->accept();
-            return true; // 標準のドロップ処理を完全に阻止
-        }
+  if (obj == pUi->outDirTreeView || obj == pUi->outDirTreeView->viewport()) {
+    if (event->type() == QEvent::DragEnter ||
+        event->type() == QEvent::DragMove) {
+      QDragMoveEvent *pDrgMv = static_cast<QDragMoveEvent *>(event);
+      pDrgMv->acceptProposedAction();
+      return true;
     }
-    return QMainWindow::eventFilter(obj, event);
+    if (event->type() == QEvent::Drop) {
+      QDropEvent *pDrpEv = static_cast<QDropEvent *>(event);
+      QModelIndex idxTrgt =
+          pUi->outDirTreeView->indexAt(pDrpEv->position().toPoint());
+
+      if (idxTrgt.isValid()) {
+        int iGid = idxTrgt.data(Qt::UserRole).toInt();
+        // ユーザーグループ(>=0) または 未所属(-2) または すべて(-1)
+        // へのドロップを許可
+        if (iGid >= 0 || iGid == FileManager::iGRP_ID_UNASSIGNED ||
+            iGid == FileManager::iGRP_ID_ALL) {
+          QItemSelectionModel *pSlctn = pUi->followerListView->selectionModel();
+          QModelIndexList lstIdxs = pSlctn->selectedIndexes();
+          QSet<int> setRows;
+          for (const QModelIndex &idx : lstIdxs) {
+            setRows.insert(idx.row());
+          }
+
+          if (setRows.isEmpty() &&
+              pUi->followerListView->currentIndex().isValid()) {
+            setRows.insert(pUi->followerListView->currentIndex().row());
+          }
+
+          QStringList lstTargetIds;
+          for (int iRow : setRows) {
+            // インデックスに依存せず、0列目の UserRole から ID を取得
+            QStandardItem *pItm = pMdlFllwr->item(iRow, 0);
+            if (pItm) {
+              QString szUsrId = pItm->data(Qt::UserRole).toString();
+              if (!szUsrId.isEmpty()) {
+                lstTargetIds << szUsrId;
+              }
+            }
+          }
+
+          if (!lstTargetIds.isEmpty()) {
+            if (iGid >= 0) {
+              // 特定グループへの割り当て
+              emit followersAssignedToGroup(lstTargetIds, iGid);
+            } else {
+              // 未所属(-2) または すべて(-1) へのドロップは全解除とみなす
+              emit followersUnassignedFromGroup(lstTargetIds, -1);
+            }
+          }
+        }
+      }
+      pDrpEv->setDropAction(Qt::IgnoreAction);
+      pDrpEv->accept();
+      return true; // 標準のドロップ処理を完全に阻止
+    }
+  }
+  return QMainWindow::eventFilter(obj, event);
 }
 
 /**
  * @brief Output ボタンクリック時の処理。
  */
-void MainWindow::onOutputButtonClicked() {
-    emit outputRequested();
-}
+void MainWindow::onOutputButtonClicked() { emit outputRequested(); }
 
 /**
  * @brief フォロワーリストのコンテキストメニュー表示。
  */
-void MainWindow::onFollowerListContextMenu(const QPoint& pos) {
-    QModelIndex index = pUi->followerListView->indexAt(pos);
-    if (!index.isValid()) {
-        return;
-    }
+void MainWindow::onFollowerListContextMenu(const QPoint &pos) {
+  QModelIndex index = pUi->followerListView->indexAt(pos);
+  if (!index.isValid()) {
+    return;
+  }
 
-    // 選択されている全てのユーザー ID を収集
-    QItemSelectionModel *pSlctn = pUi->followerListView->selectionModel();
-    QModelIndexList lstIdxs = pSlctn->selectedIndexes();
-    QSet<int> setRows;
-    for (const QModelIndex& idx : lstIdxs) {
-        setRows.insert(idx.row());
-    }
-    if (setRows.isEmpty()) {
-        setRows.insert(index.row());
-    }
+  // 選択されている全てのユーザー ID を収集
+  QItemSelectionModel *pSlctn = pUi->followerListView->selectionModel();
+  QModelIndexList lstIdxs = pSlctn->selectedIndexes();
+  QSet<int> setRows;
+  for (const QModelIndex &idx : lstIdxs) {
+    setRows.insert(idx.row());
+  }
+  if (setRows.isEmpty()) {
+    setRows.insert(index.row());
+  }
 
-    QStringList lstTargetIds;
-    for (int iRow : setRows) {
-        lstTargetIds << pMdlFllwr->item(iRow, COL_USER_ID)->text();
-    }
+  QStringList lstTargetIds;
+  for (int iRow : setRows) {
+    // インデックスに依存せず、0列目の UserRole から ID を取得
+    lstTargetIds << pMdlFllwr->item(iRow, 0)->data(Qt::UserRole).toString();
+  }
 
-    QMenu oMenu(this);
-    if (lstTargetIds.size() > 1) {
-        oMenu.setTitle(QString("%1 名を選択中").arg(lstTargetIds.size()));
-    } else {
-        oMenu.setTitle(pMdlFllwr->item(index.row(), COL_DISPLAY_NAME)->text());
-    }
+  QMenu oMenu(this);
+  if (lstTargetIds.size() > 1) {
+    oMenu.setTitle(QString("%1 名を選択中").arg(lstTargetIds.size()));
+  } else {
+    oMenu.setTitle(pMdlFllwr->item(index.row(), COL_DISPLAY_NAME)->text());
+  }
 
-    // グループに追加サブメニュー
-    QMenu *pSubAdd = oMenu.addMenu("グループに追加");
-    
-    // 現在のグループリストをツリーモデルから収集
-    QStandardItem *pItmAll = nullptr;
-    for (int i = 0; i < pMdlGrp->rowCount(); ++i) {
-        if (pMdlGrp->item(i)->data(Qt::UserRole).toInt() == FileManager::iGRP_ID_ALL) {
-            pItmAll = pMdlGrp->item(i);
-            break;
-        }
-    }
+  // グループに追加サブメニュー
+  QMenu *pSubAdd = oMenu.addMenu("グループに追加");
 
-    if (pItmAll) {
-        for (int i = 0; i < pItmAll->rowCount(); ++i) {
-            QStandardItem *pChild = pItmAll->child(i);
-            int iGid = pChild->data(Qt::UserRole).toInt();
-            if (iGid >= 0) { // ユーザー定義グループのみ
-                QAction *pAct = pSubAdd->addAction(pChild->text());
-                connect(pAct, &QAction::triggered, [this, lstTargetIds, iGid]() {
-                    emit followersAssignedToGroup(lstTargetIds, iGid);
-                });
-            }
-        }
+  // 現在のグループリストをツリーモデルから収集
+  QStandardItem *pItmAll = nullptr;
+  for (int i = 0; i < pMdlGrp->rowCount(); ++i) {
+    if (pMdlGrp->item(i)->data(Qt::UserRole).toInt() ==
+        FileManager::iGRP_ID_ALL) {
+      pItmAll = pMdlGrp->item(i);
+      break;
     }
+  }
 
-    // グループから解除メニュー
-    // 単一選択の場合は所属グループのみ表示、複数選択の場合は全解除
-    if (lstTargetIds.size() == 1) {
-        QStandardItem *pItmGrp = pMdlFllwr->item(index.row(), COL_GROUPS);
-        QString szGidsRaw = pItmGrp->data(Qt::UserRole).toString();
-        if (!szGidsRaw.isEmpty()) {
-            QMenu *pSubRem = oMenu.addMenu("グループから解除");
-            QStringList lstGids = szGidsRaw.split(",", Qt::SkipEmptyParts);
-            for (const QString& szGid : lstGids) {
-                int iGid = szGid.toInt();
-                QString szGNm = "Group " + szGid;
-                if (pItmAll) {
-                    for (int j = 0; j < pItmAll->rowCount(); ++j) {
-                        if (pItmAll->child(j)->data(Qt::UserRole).toInt() == iGid) {
-                            szGNm = pItmAll->child(j)->text();
-                            break;
-                        }
-                    }
-                }
-                QAction *pAct = pSubRem->addAction(szGNm);
-                connect(pAct, &QAction::triggered, [this, lstTargetIds, iGid]() {
-                    emit followersUnassignedFromGroup(lstTargetIds, iGid);
-                });
-            }
-        }
-    } else {
-        // 複数選択時は「すべてのグループから解除」を表示
-        QAction *pActRemAll = oMenu.addAction("選択したユーザーを全グループから解除");
-        connect(pActRemAll, &QAction::triggered, [this, lstTargetIds]() {
-            emit followersUnassignedFromGroup(lstTargetIds, -1);
+  if (pItmAll) {
+    for (int i = 0; i < pItmAll->rowCount(); ++i) {
+      QStandardItem *pChild = pItmAll->child(i);
+      int iGid = pChild->data(Qt::UserRole).toInt();
+      if (iGid >= 0) { // ユーザー定義グループのみ
+        QAction *pAct = pSubAdd->addAction(pChild->text());
+        connect(pAct, &QAction::triggered, [this, lstTargetIds, iGid]() {
+          emit followersAssignedToGroup(lstTargetIds, iGid);
         });
+      }
     }
+  }
 
-    oMenu.exec(pUi->followerListView->viewport()->mapToGlobal(pos));
+  // グループから解除メニュー
+  // 単一選択の場合は所属グループのみ表示、複数選択の場合は全解除
+  if (lstTargetIds.size() == 1) {
+    // インデックスに依存せず、0列目の UserRole + 1 から所属グループ ID を取得
+    QString szGidsRaw = pMdlFllwr->item(index.row(), 0)->data(Qt::UserRole + 1).toString();
+    if (!szGidsRaw.isEmpty()) {
+      QMenu *pSubRem = oMenu.addMenu("グループから解除");
+      QStringList lstGids = szGidsRaw.split(",", Qt::SkipEmptyParts);
+      for (const QString &szGid : lstGids) {
+        int iGid = szGid.toInt();
+        QString szGNm = "Group " + szGid;
+        if (pItmAll) {
+          for (int j = 0; j < pItmAll->rowCount(); ++j) {
+            if (pItmAll->child(j)->data(Qt::UserRole).toInt() == iGid) {
+              szGNm = pItmAll->child(j)->text();
+              break;
+            }
+          }
+        }
+        QAction *pAct = pSubRem->addAction(szGNm);
+        connect(pAct, &QAction::triggered, [this, lstTargetIds, iGid]() {
+          emit followersUnassignedFromGroup(lstTargetIds, iGid);
+        });
+      }
+    }
+  } else {
+    // 複数選択時は「すべてのグループから解除」を表示
+    QAction *pActRemAll =
+        oMenu.addAction("選択したユーザーを全グループから解除");
+    connect(pActRemAll, &QAction::triggered, [this, lstTargetIds]() {
+      emit followersUnassignedFromGroup(lstTargetIds, -1);
+    });
+  }
+
+  oMenu.exec(pUi->followerListView->viewport()->mapToGlobal(pos));
 }
 
 /**
  * @brief UI 要素の初期設定とシグナル・スロットの接続。
  */
 void MainWindow::setupUiExtra() {
-    pMdlFllwr = new QStandardItemModel(this);
-    pMdlFllwr->setHorizontalHeaderLabels({"表示名", "ユーザー名", "ID", "チャンネルURL", "グループ"});
-    pUi->followerListView->setModel(pMdlFllwr);
-    
-    // 列幅を内容に合わせて自動調整し、入り切らない場合はスクロールバーを表示
-    // 初期状態は手動調整可能にし、データセット時に内容に合わせる
-    pUi->followerListView->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
-    pUi->followerListView->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    
-    pMdlGrp = new QStandardItemModel(this);
-    pMdlGrp->setHorizontalHeaderLabels({"グループ名"});
-    pUi->outDirTreeView->setModel(pMdlGrp);
+  pMdlFllwr = new QStandardItemModel(this);
+  pMdlFllwr->setHorizontalHeaderLabels(
+      {"表示名", "ユーザー名", "ID", "チャンネルURL", "グループ"});
+  pUi->followerListView->setModel(pMdlFllwr);
 
-    // システム予約グループの初期追加
-    QStandardItem *pItmAll = new QStandardItem("すべて");
-    pItmAll->setData(FileManager::iGRP_ID_ALL, Qt::UserRole);
-    pMdlGrp->appendRow(pItmAll);
+  // 列幅を内容に合わせて自動調整し、入り切らない場合はスクロールバーを表示
+  // 初期状態は手動調整可能にし、データセット時に内容に合わせる
+  pUi->followerListView->horizontalHeader()->setSectionResizeMode(
+      QHeaderView::Interactive);
+  pUi->followerListView->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
 
-    QStandardItem *pItmUnassigned = new QStandardItem("未所属");
-    pItmUnassigned->setData(FileManager::iGRP_ID_UNASSIGNED, Qt::UserRole);
-    pItmAll->appendRow(pItmUnassigned);
+  pMdlGrp = new QStandardItemModel(this);
+  pMdlGrp->setHorizontalHeaderLabels({"グループ名"});
+  pUi->outDirTreeView->setModel(pMdlGrp);
 
-    pUi->outDirTreeView->expandAll();
+  // システム予約グループの初期追加
+  QStandardItem *pItmAll = new QStandardItem("すべて");
+  pItmAll->setData(FileManager::iGRP_ID_ALL, Qt::UserRole);
+  pMdlGrp->appendRow(pItmAll);
 
-    connect(pUi->twitchLoginButton, &QPushButton::clicked, this, &MainWindow::onLoginButtonClicked);
-    connect(pUi->createFolderButton, &QPushButton::clicked, this, &MainWindow::onAddGroupButtonClicked);
-    connect(pUi->deleteFolderButton, &QPushButton::clicked, this, &MainWindow::onDeleteGroupButtonClicked);
-    connect(pUi->undoButton, &QPushButton::clicked, this, &MainWindow::onUndoButtonClicked);
-    connect(pUi->redoButton, &QPushButton::clicked, this, &MainWindow::onRedoButtonClicked);
-    connect(pUi->outDirTreeView, &QTreeView::clicked, this, &MainWindow::onGroupTreeClicked);
+  QStandardItem *pItmUnassigned = new QStandardItem("未所属");
+  pItmUnassigned->setData(FileManager::iGRP_ID_UNASSIGNED, Qt::UserRole);
+  pItmAll->appendRow(pItmUnassigned);
 
-    // Output ボタンの追加
-    pBtnOutput = new QPushButton("Output", this);
-    pBtnOutput->setEnabled(false);
-    pUi->horizontalLayout->insertWidget(4, pBtnOutput);
-    connect(pBtnOutput, &QPushButton::clicked, this, &MainWindow::onOutputButtonClicked);
+  pUi->outDirTreeView->expandAll();
 
-    // D&D 設定
-    pUi->followerListView->setDragEnabled(true);
-    pUi->followerListView->setDragDropMode(QAbstractItemView::DragOnly);
-    pUi->outDirTreeView->setAcceptDrops(true);
-    pUi->outDirTreeView->setDragDropMode(QAbstractItemView::DropOnly);
+  connect(pUi->twitchLoginButton, &QPushButton::clicked, this,
+          &MainWindow::onLoginButtonClicked);
+  connect(pUi->createFolderButton, &QPushButton::clicked, this,
+          &MainWindow::onAddGroupButtonClicked);
+  connect(pUi->deleteFolderButton, &QPushButton::clicked, this,
+          &MainWindow::onDeleteGroupButtonClicked);
+  connect(pUi->undoButton, &QPushButton::clicked, this,
+          &MainWindow::onUndoButtonClicked);
+  connect(pUi->redoButton, &QPushButton::clicked, this,
+          &MainWindow::onRedoButtonClicked);
+  connect(pUi->outDirTreeView, &QTreeView::clicked, this,
+          &MainWindow::onGroupTreeClicked);
 
-    // コンテキストメニュー設定
-    pUi->followerListView->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(pUi->followerListView, &QTreeView::customContextMenuRequested, this, &MainWindow::onFollowerListContextMenu);
+  // Output ボタンの追加
+  pBtnOutput = new QPushButton("Output", this);
+  pBtnOutput->setEnabled(false);
+  pUi->horizontalLayout->insertWidget(4, pBtnOutput);
+  connect(pBtnOutput, &QPushButton::clicked, this,
+          &MainWindow::onOutputButtonClicked);
 
-    // リンククリック（ダブルクリック）でブラウザを開く
-    connect(pUi->followerListView, &QTreeView::doubleClicked, [this](const QModelIndex& index) {
-        if (index.column() == COL_CHANNEL_URL) {
-            QString szUrl = index.data().toString();
-            if (szUrl.startsWith("http")) {
+  // D&D 設定
+  pUi->followerListView->setDragEnabled(true);
+  pUi->followerListView->setDragDropMode(QAbstractItemView::DragOnly);
+  pUi->outDirTreeView->setAcceptDrops(true);
+  pUi->outDirTreeView->setDragDropMode(QAbstractItemView::DropOnly);
+
+  // コンテキストメニュー設定
+  pUi->followerListView->setContextMenuPolicy(Qt::CustomContextMenu);
+  connect(pUi->followerListView, &QTreeView::customContextMenuRequested, this,
+          &MainWindow::onFollowerListContextMenu);
+
+  pUi->outDirTreeView->setContextMenuPolicy(Qt::CustomContextMenu);
+  connect(pUi->outDirTreeView, &QTreeView::customContextMenuRequested, this,
+          &MainWindow::on_group_tree_context_menu);
+
+  // リンククリック（ダブルクリック）でブラウザを開く
+  connect(pUi->followerListView, &QTreeView::doubleClicked,
+          [this](const QModelIndex &index) {
+            if (index.column() == COL_CHANNEL_URL) {
+              QString szUrl = index.data().toString();
+              if (szUrl.startsWith("http")) {
                 QDesktopServices::openUrl(QUrl(szUrl));
+              }
             }
-        }
-    });
+          });
 
-    // イベントフィルター登録
-    pUi->outDirTreeView->installEventFilter(this);
-    pUi->outDirTreeView->viewport()->installEventFilter(this);
+  // イベントフィルター登録
+  pUi->outDirTreeView->installEventFilter(this);
+  pUi->outDirTreeView->viewport()->installEventFilter(this);
 }
 
 /**
@@ -273,161 +292,182 @@ void MainWindow::setupUiExtra() {
  * @param bLgned ログイン済みなら true。
  */
 void MainWindow::setLoginStatus(bool bLgned) {
-    if (bLgned) {
-        pUi->statusbar->showMessage("Twitch ログイン済み");
-        pUi->twitchLoginButton->setText("Update (更新)");
-    } else {
-        pUi->statusbar->showMessage("未ログイン");
-        pUi->twitchLoginButton->setText("Twitch Login");
-    }
-    pUi->twitchLoginButton->setEnabled(true);
+  if (bLgned) {
+    pUi->statusbar->showMessage("Twitch ログイン済み");
+    pUi->twitchLoginButton->setText("Update (更新)");
+  } else {
+    pUi->statusbar->showMessage("未ログイン");
+    pUi->twitchLoginButton->setText("Twitch Login");
+  }
+  pUi->twitchLoginButton->setEnabled(true);
 }
 
 /**
  * @brief フォロワーリストを UI モデルに反映する。
  * @param lstFllwrs 表示対象のリスト。
  */
-void MainWindow::setFollowers(const QList<TwitchFollower>& lstFllwrs, const QMap<int, QString>& mapGrps) {
-    pMdlFllwr->setRowCount(0);
-    for (const auto& oFllwr : lstFllwrs) {
-        QList<QStandardItem*> lstItems;
-        lstItems << new QStandardItem(oFllwr.userName);
-        lstItems << new QStandardItem(oFllwr.userLogin);
-        lstItems << new QStandardItem(oFllwr.userId);
-        
-        // チャンネルURLを動的に生成し、リンクスタイルを適用
-        QStandardItem *pItmUrl = new QStandardItem("https://twitch.tv/" + oFllwr.userLogin);
-        pItmUrl->setForeground(Qt::blue);
-        QFont fontUrl = pItmUrl->font();
-        fontUrl.setUnderline(true);
-        pItmUrl->setFont(fontUrl);
-        lstItems << pItmUrl;
-        
-        // グループIDを名前に変換
-        QStringList lstGNms;
-        QStringList lstGidsStr;
-        for (int iGid : oFllwr.groupIds) {
-            if (mapGrps.contains(iGid)) {
-                lstGNms << mapGrps.value(iGid);
-            } else if (iGid == FileManager::iGRP_ID_UNASSIGNED) {
-                lstGNms << "未所属";
-            }
-            lstGidsStr << QString::number(iGid);
-        }
-        QStandardItem *pItmGrp = new QStandardItem(lstGNms.join(", "));
-        pItmGrp->setData(lstGidsStr.join(","), Qt::UserRole); // 内部的に ID をカンマ区切りで保持
-        lstItems << pItmGrp;
-        
-        pMdlFllwr->appendRow(lstItems);
-    }
-    
-    if (pBtnOutput) {
-        pBtnOutput->setEnabled(!lstFllwrs.isEmpty());
+void MainWindow::setFollowers(const QList<TwitchFollower> &lstFllwrs,
+                              const QMap<int, QString> &mapGrps) {
+  pMdlFllwr->setRowCount(0);
+  for (const auto &oFllwr : lstFllwrs) {
+    QList<QStandardItem *> lstItems;
+    QStandardItem *pItmDisplayName = new QStandardItem(oFllwr.userName);
+    // 第0列の UserRole に ID を格納（インデックス依存からの脱却）
+    pItmDisplayName->setData(oFllwr.userId, Qt::UserRole);
+    lstItems << pItmDisplayName;
+
+    lstItems << new QStandardItem(oFllwr.userLogin);
+    lstItems << new QStandardItem(oFllwr.userId);
+
+    // チャンネルURLを動的に生成し、リンクスタイルを適用
+    QStandardItem *pItmUrl =
+        new QStandardItem("https://twitch.tv/" + oFllwr.userLogin);
+    pItmUrl->setForeground(Qt::blue);
+    QFont fontUrl = pItmUrl->font();
+    fontUrl.setUnderline(true);
+    pItmUrl->setFont(fontUrl);
+    lstItems << pItmUrl;
+
+    // 全アイテムを読み取り専用に設定
+    for (QStandardItem *pItm : lstItems) {
+      pItm->setEditable(false);
     }
 
-    // 内容に合わせて列幅を一度調整（見切れ防止）
-    pUi->followerListView->resizeColumnsToContents();
+    // グループIDを名前に変換
+    QStringList lstGNms;
+    QStringList lstGidsStr;
+    for (int iGid : oFllwr.groupIds) {
+      if (mapGrps.contains(iGid)) {
+        lstGNms << mapGrps.value(iGid);
+      } else if (iGid == FileManager::iGRP_ID_UNASSIGNED) {
+        lstGNms << "未所属";
+      }
+      lstGidsStr << QString::number(iGid);
+    }
+    // 第0列の UserRole+1 にグループ ID 文字列を格納（脱インデックス）
+    pItmDisplayName->setData(lstGidsStr.join(","), Qt::UserRole + 1);
+
+    QStandardItem *pItmGrp = new QStandardItem(lstGNms.join(", "));
+    pItmGrp->setEditable(false);
+    lstItems << pItmGrp;
+
+    pMdlFllwr->appendRow(lstItems);
+  }
+
+  if (pBtnOutput) {
+    pBtnOutput->setEnabled(!lstFllwrs.isEmpty());
+  }
+
+  // 内容に合わせて列幅を一度調整（見切れ防止）
+  pUi->followerListView->resizeColumnsToContents();
 }
 
 /**
  * @brief グループマップを UI モデルに反映する。
  * @param mapGrps 表示対象のマップ。
  */
-void MainWindow::setGroups(const QMap<int, QString>& mapGrps, const QMap<int, int>& mapCounts) {
-    // 現在選択されているグループ ID を記憶
-    int iSlctdId = INVALID_ID;
-    QModelIndexList lstSlctd = pUi->outDirTreeView->selectionModel()->selectedIndexes();
-    if (!lstSlctd.isEmpty()) {
-        iSlctdId = lstSlctd.first().data(Qt::UserRole).toInt();
+void MainWindow::setGroups(const QMap<int, QString> &mapGrps,
+                           const QMap<int, int> &mapCounts) {
+  // 現在選択されているグループ ID を記憶
+  int iSlctdId = INVALID_ID;
+  QModelIndexList lstSlctd =
+      pUi->outDirTreeView->selectionModel()->selectedIndexes();
+  if (!lstSlctd.isEmpty()) {
+    iSlctdId = lstSlctd.first().data(Qt::UserRole).toInt();
+  }
+
+  // 「すべて」ノードを探す
+  QStandardItem *pItmAll = nullptr;
+  QStandardItem *pItmUnassigned = nullptr;
+  for (int i = 0; i < pMdlGrp->rowCount(); ++i) {
+    QStandardItem *pItm = pMdlGrp->item(i);
+    int iGid = pItm->data(Qt::UserRole).toInt();
+    if (iGid == FileManager::iGRP_ID_ALL) {
+      pItmAll = pItm;
+      // 「すべて」の件数を更新
+      int iCount = mapCounts.value(FileManager::iGRP_ID_ALL, 0);
+      pItmAll->setText(QString("すべて (%1)").arg(iCount));
+    }
+  }
+
+  if (!pItmAll) {
+    return;
+  }
+
+  // 「未所属」ノードを探す（「すべて」の子として存在）
+  for (int i = 0; i < pItmAll->rowCount(); ++i) {
+    QStandardItem *pChild = pItmAll->child(i);
+    if (pChild->data(Qt::UserRole).toInt() == FileManager::iGRP_ID_UNASSIGNED) {
+      pItmUnassigned = pChild;
+      break;
+    }
+  }
+
+  if (pItmUnassigned) {
+    int iCount = mapCounts.value(FileManager::iGRP_ID_UNASSIGNED, 0);
+    pItmUnassigned->setText(QString("未所属 (%1)").arg(iCount));
+  }
+
+  // 「すべて」の子ノードを一旦クリア（「未所属」以外）
+  for (int i = pItmAll->rowCount() - 1; i >= 0; --i) {
+    if (pItmAll->child(i)->data(Qt::UserRole).toInt() !=
+        FileManager::iGRP_ID_UNASSIGNED) {
+      pItmAll->removeRow(i);
+    }
+  }
+
+  // ユーザー定義グループを追加
+  for (auto it = mapGrps.constBegin(); it != mapGrps.constEnd(); ++it) {
+    if (it.value().trimmed().isEmpty()) {
+      continue; // 空の名前は無視
     }
 
-    // 「すべて」ノードを探す
-    QStandardItem *pItmAll = nullptr;
-    QStandardItem *pItmUnassigned = nullptr;
-    for (int i = 0; i < pMdlGrp->rowCount(); ++i) {
-        QStandardItem *pItm = pMdlGrp->item(i);
-        int iGid = pItm->data(Qt::UserRole).toInt();
-        if (iGid == FileManager::iGRP_ID_ALL) {
-            pItmAll = pItm;
-            // 「すべて」の件数を更新
-            int iCount = mapCounts.value(FileManager::iGRP_ID_ALL, 0);
-            pItmAll->setText(QString("すべて (%1)").arg(iCount));
-        }
-    }
+    int iGrpId = it.key();
+    int iCount = mapCounts.value(iGrpId, 0);
 
-    if (!pItmAll) {
-        return;
-    }
+    QStandardItem *pItm =
+        new QStandardItem(QString("%1 (%2)").arg(it.value()).arg(iCount));
+    pItm->setData(iGrpId, Qt::UserRole);
+    pItmAll->appendRow(pItm);
+  }
 
-    // 「未所属」ノードを探す（「すべて」の子として存在）
-    for (int i = 0; i < pItmAll->rowCount(); ++i) {
-        QStandardItem *pChild = pItmAll->child(i);
-        if (pChild->data(Qt::UserRole).toInt() == FileManager::iGRP_ID_UNASSIGNED) {
-            pItmUnassigned = pChild;
-            break;
-        }
+  // 「削除済みユーザー」の更新
+  int iDltdCount = mapCounts.value(FileManager::iGRP_ID_DELETED, 0);
+  QString szDltdTitle = QString("削除済みユーザー (%1)").arg(iDltdCount);
+  bool bHasDeleted = false;
+  for (int i = 0; i < pMdlGrp->rowCount(); ++i) {
+    if (pMdlGrp->item(i)->data(Qt::UserRole).toInt() ==
+        FileManager::iGRP_ID_DELETED) {
+      pMdlGrp->item(i)->setText(szDltdTitle);
+      bHasDeleted = true;
+      break;
     }
+  }
+  if (!bHasDeleted) {
+    QStandardItem *pItmDltd = new QStandardItem(szDltdTitle);
+    pItmDltd->setData(FileManager::iGRP_ID_DELETED, Qt::UserRole);
+    pMdlGrp->appendRow(pItmDltd);
+  }
 
-    if (pItmUnassigned) {
-        int iCount = mapCounts.value(FileManager::iGRP_ID_UNASSIGNED, 0);
-        pItmUnassigned->setText(QString("未所属 (%1)").arg(iCount));
+  pUi->outDirTreeView->expandAll();
+
+  // 選択状態の復元
+  if (iSlctdId != INVALID_ID) {
+    // 全ノードを探索して一致する ID を探す
+    QList<QStandardItem *> lstSearch;
+    for (int i = 0; i < pMdlGrp->rowCount(); ++i)
+      lstSearch << pMdlGrp->item(i);
+
+    while (!lstSearch.isEmpty()) {
+      QStandardItem *pItm = lstSearch.takeFirst();
+      if (pItm->data(Qt::UserRole).toInt() == iSlctdId) {
+        pUi->outDirTreeView->setCurrentIndex(pItm->index());
+        break;
+      }
+      for (int i = 0; i < pItm->rowCount(); ++i)
+        lstSearch << pItm->child(i);
     }
-
-    // 「すべて」の子ノードを一旦クリア（「未所属」以外）
-    for (int i = pItmAll->rowCount() - 1; i >= 0; --i) {
-        if (pItmAll->child(i)->data(Qt::UserRole).toInt() != FileManager::iGRP_ID_UNASSIGNED) {
-            pItmAll->removeRow(i);
-        }
-    }
-
-    // ユーザー定義グループを追加
-    for (auto it = mapGrps.constBegin(); it != mapGrps.constEnd(); ++it) {
-        if (it.value().trimmed().isEmpty()) {
-            continue; // 空の名前は無視
-        }
-        
-        int iGrpId = it.key();
-        int iCount = mapCounts.value(iGrpId, 0);
-
-        QStandardItem *pItm = new QStandardItem(QString("%1 (%2)").arg(it.value()).arg(iCount));
-        pItm->setData(iGrpId, Qt::UserRole);
-        pItmAll->appendRow(pItm);
-    }
-
-    // 「削除済みユーザー」の更新
-    int iDltdCount = mapCounts.value(FileManager::iGRP_ID_DELETED, 0);
-    QString szDltdTitle = QString("削除済みユーザー (%1)").arg(iDltdCount);
-    bool bHasDeleted = false;
-    for (int i = 0; i < pMdlGrp->rowCount(); ++i) {
-        if (pMdlGrp->item(i)->data(Qt::UserRole).toInt() == FileManager::iGRP_ID_DELETED) {
-            pMdlGrp->item(i)->setText(szDltdTitle);
-            bHasDeleted = true;
-            break;
-        }
-    }
-    if (!bHasDeleted) {
-        QStandardItem *pItmDltd = new QStandardItem(szDltdTitle);
-        pItmDltd->setData(FileManager::iGRP_ID_DELETED, Qt::UserRole);
-        pMdlGrp->appendRow(pItmDltd);
-    }
-
-    pUi->outDirTreeView->expandAll();
-
-    // 選択状態の復元
-    if (iSlctdId != INVALID_ID) {
-        // 全ノードを探索して一致する ID を探す
-        QList<QStandardItem*> lstSearch;
-        for(int i=0; i<pMdlGrp->rowCount(); ++i) lstSearch << pMdlGrp->item(i);
-        
-        while(!lstSearch.isEmpty()){
-            QStandardItem* pItm = lstSearch.takeFirst();
-            if(pItm->data(Qt::UserRole).toInt() == iSlctdId){
-                pUi->outDirTreeView->setCurrentIndex(pItm->index());
-                break;
-            }
-            for(int i=0; i<pItm->rowCount(); ++i) lstSearch << pItm->child(i);
-        }
-    }
+  }
 }
 
 /**
@@ -436,53 +476,90 @@ void MainWindow::setGroups(const QMap<int, QString>& mapGrps, const QMap<int, in
  * @param bCanRd Redo 可能。
  */
 void MainWindow::setUndoRedoEnabled(bool bCanWnd, bool bCanRd) {
-    pUi->undoButton->setEnabled(bCanWnd);
-    pUi->redoButton->setEnabled(bCanRd);
+  pUi->undoButton->setEnabled(bCanWnd);
+  pUi->redoButton->setEnabled(bCanRd);
 }
 
 /**
  * @brief ログインボタンクリック時の内部処理。
  */
-void MainWindow::onLoginButtonClicked() {
-    emit loginRequested();
-}
+void MainWindow::onLoginButtonClicked() { emit loginRequested(); }
 
 /**
  * @brief グループ追加ボタンクリック時の内部処理。
  */
 void MainWindow::onAddGroupButtonClicked() {
-    bool bOk = false;
-    QString szNm = QInputDialog::getText(this, "新規グループ", "グループ名を入力してください:", QLineEdit::Normal, "", &bOk);
-    if (bOk && !szNm.isEmpty()) {
-        emit groupCreated(szNm);
-    } else {
-        // キャンセルまたは空文字
-    }
+  bool bOk = false;
+  QString szNm = QInputDialog::getText(
+      this, "新規グループ", "グループ名を入力してください:", QLineEdit::Normal,
+      "", &bOk);
+  if (bOk && !szNm.isEmpty()) {
+    emit groupCreated(szNm);
+  } else {
+    // キャンセルまたは空文字
+  }
 }
 
 /**
  * @brief グループ削除ボタンクリック時の内部処理。
  */
 void MainWindow::onDeleteGroupButtonClicked() {
-    QModelIndex oIdx = pUi->outDirTreeView->currentIndex();
-    if (oIdx.isValid()) {
-        int iGrpId = oIdx.data(Qt::UserRole).toInt();
-        emit groupDeleted(iGrpId);
-    } else {
-        QMessageBox::information(this, "通知", "削除するグループを選択してください。");
-    }
+  QModelIndex oIdx = pUi->outDirTreeView->currentIndex();
+  if (oIdx.isValid()) {
+    int iGrpId = oIdx.data(Qt::UserRole).toInt();
+    emit groupDeleted(iGrpId);
+  } else {
+    QMessageBox::information(this, "通知",
+                             "削除するグループを選択してください。");
+  }
 }
 
 /**
  * @brief Undo ボタンクリック時の内部処理。
  */
-void MainWindow::onUndoButtonClicked() {
-    emit undoRequested();
-}
+void MainWindow::onUndoButtonClicked() { emit undoRequested(); }
 
 /**
  * @brief Redo ボタンクリック時の内部処理。
  */
-void MainWindow::onRedoButtonClicked() {
-    emit redoRequested();
+void MainWindow::onRedoButtonClicked() { emit redoRequested(); }
+
+/**
+ * @brief グループツリーのコンテキストメニュー。
+ */
+void MainWindow::on_group_tree_context_menu(const QPoint &pos) {
+  QModelIndex index = pUi->outDirTreeView->indexAt(pos);
+  if (!index.isValid()) {
+    return;
+  }
+
+  int iGrpId = index.data(Qt::UserRole).toInt();
+  // ユーザー定義グループのみ名前変更可能
+  if (iGrpId < 0) {
+    return;
+  }
+
+  QMenu oMenu(this);
+  QAction *pActRename = oMenu.addAction("名前を変更");
+  QAction *pActDelete = oMenu.addAction("削除");
+
+  QAction *pRes = oMenu.exec(pUi->outDirTreeView->viewport()->mapToGlobal(pos));
+  if (pRes == pActRename) {
+    bool bOk = false;
+    QString szOldNm = index.data().toString();
+    // 表示件数 "(n)" を取り除く
+    int iIdx = szOldNm.lastIndexOf(" (");
+    if (iIdx > 0) {
+      szOldNm = szOldNm.left(iIdx);
+    } else { /* skip */ }
+
+    QString szNewNm = QInputDialog::getText(
+        this, "グループ名変更", "新しい名前を入力してください:", QLineEdit::Normal,
+        szOldNm, &bOk);
+    if (bOk && !szNewNm.isEmpty() && szNewNm != szOldNm) {
+      emit groupRenamed(iGrpId, szNewNm);
+    } else { /* skip */ }
+  } else if (pRes == pActDelete) {
+    emit groupDeleted(iGrpId);
+  } else { /* skip */ }
 }
