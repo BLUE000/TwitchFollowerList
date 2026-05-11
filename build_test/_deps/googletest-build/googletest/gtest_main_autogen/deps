@@ -1,0 +1,11 @@
+gtest_main_autogen/timestamp: \
+	C:/tmp/mingw64/share/cmake-3.30/Modules/BasicConfigVersion-AnyNewerVersion.cmake.in \
+	C:/tmp/mingw64/share/cmake-3.30/Modules/CMakePackageConfigHelpers.cmake \
+	C:/tmp/mingw64/share/cmake-3.30/Modules/WriteBasicConfigVersionFile.cmake \
+	D:/prog/C++/FollowerList/build_test/_deps/googletest-src/googletest/CMakeLists.txt \
+	D:/prog/C++/FollowerList/build_test/_deps/googletest-src/googletest/cmake/Config.cmake.in \
+	D:/prog/C++/FollowerList/build_test/_deps/googletest-src/googletest/cmake/gtest.pc.in \
+	D:/prog/C++/FollowerList/build_test/_deps/googletest-src/googletest/cmake/gtest_main.pc.in \
+	D:/prog/C++/FollowerList/build_test/_deps/googletest-src/googletest/cmake/internal_utils.cmake \
+	D:/prog/C++/FollowerList/build_test/_deps/googletest-src/googletest/src/gtest_main.cc \
+	C:/tmp/mingw64/bin/cmake.exe

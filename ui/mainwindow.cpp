@@ -16,6 +16,7 @@
 #include <QMimeData>
 #include <QPushButton>
 #include <QSet>
+#include <QSortFilterProxyModel>
 #include <QStandardItemModel>
 #include <QUrl>
 
@@ -63,19 +64,25 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
         if (iGid >= 0 || iGid == FileManager::iGRP_ID_UNASSIGNED ||
             iGid == FileManager::iGRP_ID_ALL) {
           QItemSelectionModel *pSlctn = pUi->followerListView->selectionModel();
-          QModelIndexList lstIdxs = pSlctn->selectedIndexes();
-          QSet<int> setRows;
-          for (const QModelIndex &idx : lstIdxs) {
-            setRows.insert(idx.row());
+          QModelIndexList lstIdxs = pSlctn->selectedRows(); // selectedIndexes ではなく行を選択
+          QSet<int> setSourceRows;
+          for (const QModelIndex &idxProxy : lstIdxs) {
+            QModelIndex idxSrc = pProxyMdl->mapToSource(idxProxy);
+            if (idxSrc.isValid()) {
+              setSourceRows.insert(idxSrc.row());
+            }
           }
 
-          if (setRows.isEmpty() &&
+          if (setSourceRows.isEmpty() &&
               pUi->followerListView->currentIndex().isValid()) {
-            setRows.insert(pUi->followerListView->currentIndex().row());
+            QModelIndex idxSrc = pProxyMdl->mapToSource(pUi->followerListView->currentIndex());
+            if (idxSrc.isValid()) {
+                setSourceRows.insert(idxSrc.row());
+            }
           }
 
           QStringList lstTargetIds;
-          for (int iRow : setRows) {
+          for (int iRow : setSourceRows) {
             // インデックスに依存せず、0列目の UserRole から ID を取得
             QStandardItem *pItm = pMdlFllwr->item(iRow, 0);
             if (pItm) {
@@ -121,17 +128,23 @@ void MainWindow::onFollowerListContextMenu(const QPoint &pos) {
 
   // 選択されている全てのユーザー ID を収集
   QItemSelectionModel *pSlctn = pUi->followerListView->selectionModel();
-  QModelIndexList lstIdxs = pSlctn->selectedIndexes();
-  QSet<int> setRows;
-  for (const QModelIndex &idx : lstIdxs) {
-    setRows.insert(idx.row());
+  QModelIndexList lstIdxs = pSlctn->selectedRows();
+  QSet<int> setSrcRows;
+  for (const QModelIndex &idxProxy : lstIdxs) {
+    QModelIndex idxSrc = pProxyMdl->mapToSource(idxProxy);
+    if (idxSrc.isValid()) {
+        setSrcRows.insert(idxSrc.row());
+    }
   }
-  if (setRows.isEmpty()) {
-    setRows.insert(index.row());
+  if (setSrcRows.isEmpty()) {
+    QModelIndex idxSrc = pProxyMdl->mapToSource(index);
+    if (idxSrc.isValid()) {
+        setSrcRows.insert(idxSrc.row());
+    }
   }
 
   QStringList lstTargetIds;
-  for (int iRow : setRows) {
+  for (int iRow : setSrcRows) {
     // インデックスに依存せず、0列目の UserRole から ID を取得
     lstTargetIds << pMdlFllwr->item(iRow, 0)->data(Qt::UserRole).toString();
   }
@@ -140,7 +153,9 @@ void MainWindow::onFollowerListContextMenu(const QPoint &pos) {
   if (lstTargetIds.size() > 1) {
     oMenu.setTitle(QString("%1 名を選択中").arg(lstTargetIds.size()));
   } else {
-    oMenu.setTitle(pMdlFllwr->item(index.row(), COL_DISPLAY_NAME)->text());
+    // 単一選択の場合は表示名を取得
+    int iFirstRow = *setSrcRows.begin();
+    oMenu.setTitle(pMdlFllwr->item(iFirstRow, COL_DISPLAY_NAME)->text());
   }
 
   // グループに追加サブメニュー
@@ -172,8 +187,9 @@ void MainWindow::onFollowerListContextMenu(const QPoint &pos) {
   // グループから解除メニュー
   // 単一選択の場合は所属グループのみ表示、複数選択の場合は全解除
   if (lstTargetIds.size() == 1) {
+    int iRow = *setSrcRows.begin();
     // インデックスに依存せず、0列目の UserRole + 1 から所属グループ ID を取得
-    QString szGidsRaw = pMdlFllwr->item(index.row(), 0)->data(Qt::UserRole + 1).toString();
+    QString szGidsRaw = pMdlFllwr->item(iRow, 0)->data(Qt::UserRole + 1).toString();
     if (!szGidsRaw.isEmpty()) {
       QMenu *pSubRem = oMenu.addMenu("グループから解除");
       QStringList lstGids = szGidsRaw.split(",", Qt::SkipEmptyParts);
@@ -213,7 +229,13 @@ void MainWindow::setupUiExtra() {
   pMdlFllwr = new QStandardItemModel(this);
   pMdlFllwr->setHorizontalHeaderLabels(
       {"表示名", "ユーザー名", "ID", "チャンネルURL", "グループ"});
-  pUi->followerListView->setModel(pMdlFllwr);
+
+  pProxyMdl = new QSortFilterProxyModel(this);
+  pProxyMdl->setSourceModel(pMdlFllwr);
+  pProxyMdl->setFilterCaseSensitivity(Qt::CaseInsensitive);
+  pProxyMdl->setFilterKeyColumn(-1); // 全列を検索対象にする
+
+  pUi->followerListView->setModel(pProxyMdl);
 
   // 列幅を内容に合わせて自動調整し、入り切らない場合はスクロールバーを表示
   // 初期状態は手動調整可能にし、データセット時に内容に合わせる
@@ -273,9 +295,10 @@ void MainWindow::setupUiExtra() {
 
   // リンククリック（ダブルクリック）でブラウザを開く
   connect(pUi->followerListView, &QTreeView::doubleClicked,
-          [this](const QModelIndex &index) {
-            if (index.column() == COL_CHANNEL_URL) {
-              QString szUrl = index.data().toString();
+          [this](const QModelIndex &idxProxy) {
+            QModelIndex idxSrc = pProxyMdl->mapToSource(idxProxy);
+            if (idxSrc.isValid() && idxSrc.column() == COL_CHANNEL_URL) {
+              QString szUrl = idxSrc.data().toString();
               if (szUrl.startsWith("http")) {
                 QDesktopServices::openUrl(QUrl(szUrl));
               }
@@ -285,6 +308,14 @@ void MainWindow::setupUiExtra() {
   // イベントフィルター登録
   pUi->outDirTreeView->installEventFilter(this);
   pUi->outDirTreeView->viewport()->installEventFilter(this);
+
+  // 検索ボックスの接続
+  connect(pUi->searchLineEdit, &QLineEdit::textChanged, this,
+          &MainWindow::onSearchTextChanged);
+}
+
+void MainWindow::onSearchTextChanged(const QString &szTxt) {
+  pProxyMdl->setFilterFixedString(szTxt);
 }
 
 /**

@@ -18,6 +18,7 @@ class MainWindow;
 QT_END_NAMESPACE
 
 class QStandardItemModel;
+class QSortFilterProxyModel;
 class QPushButton;
 
 /**
@@ -155,10 +156,12 @@ private slots:
   void on_group_tree_context_menu(const QPoint &pos);
   void onFollowerListContextMenu(const QPoint &pos);
   void onOutputButtonClicked();
+  void onSearchTextChanged(const QString &szTxt);
 
 private:
   Ui::MainWindow *pUi;           ///< UI デザインへのポインタ
   QStandardItemModel *pMdlFllwr; ///< フォロワー表示用モデル
+  QSortFilterProxyModel *pProxyMdl; ///< プロキシモデル
   QStandardItemModel *pMdlGrp;   ///< グループ表示用モデル
   QPushButton *pBtnOutput;       ///< Output ボタン
 
