@@ -183,3 +183,21 @@
 - **設計方針**: メモリ節約のため、`TwitchFollower` 構造体には URL 文字列を保持せず、以下のタイミングで動的に生成する。
     1. **リストビュー表示時**: `MainWindow::setFollowers` 内で各行にセット。
     2. **CSVエクスポート時**: `AppController` での書き出し時に生成。
+
+---
+
+## 7. 自動テスト設計 (Automated Testing)
+
+### 7.1 UI イベントシミュレーション (`Qt Test`)
+- **MainWindow テスト**:
+    - `QTest::mouseClick()`: ボタンクリックやリスト選択をエミュレート。
+    - `QTest::keyClicks()`: 文字入力（グループ名など）をエミュレート。
+    - `QContextMenuEvent` シミュレーション: 右クリックメニューの表示と選択をテスト。
+- **検証（Assertion）対象**:
+    - コントローラー内の `lstActnHstry` のサイズと内容。
+    - `FileManager` が出力する物理ファイルの内容（Base64デコード後の整合性）。
+    - UI モデル（`followerModel`）の行数や特定セルの状態。
+
+### 7.2 テスト環境の分離
+- **Mock 通信**: Twitch API は実際には叩かず、`TwitchApiClient` の Mock を作成して JSON レスポンスを注入する。
+- **一時ディレクトリ**: ファイル出力テストは Windows の `%TEMP%` 以下の隔離された場所で行い、既存のユーザーデータを汚染しないようにする。
