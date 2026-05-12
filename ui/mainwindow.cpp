@@ -229,7 +229,7 @@ void MainWindow::onFollowerListContextMenu(const QPoint &pos) {
 void MainWindow::setupUiExtra() {
   pMdlFllwr = new QStandardItemModel(this);
   pMdlFllwr->setHorizontalHeaderLabels(
-      {"表示名", "ユーザー名", "ID", "チャンネルURL", "グループ", "フォロー開始日", "フォロー削除日(最新)", "メモ"});
+      {"表示名", "ユーザー名", "ID", "チャンネルURL", "グループ", "フォロー開始日", "フォロー削除日", "メモ"});
 
   pProxyMdl = new QSortFilterProxyModel(this);
   pProxyMdl->setSourceModel(pMdlFllwr);
