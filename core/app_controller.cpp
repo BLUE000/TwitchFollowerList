@@ -133,6 +133,7 @@ void AppController::handleCurrentUserFetched(const QString& szUsrId) {
 void AppController::handleFollowersFetched(const QList<TwitchFollower>& lstFtchdFllwrs) {
     log(INF_FLW_FETCH_OK);
     QList<TwitchFollower> lstNwCrntFllwrs;
+    QDateTime oNow = QDateTime::currentDateTime();
     
     QMap<QString, TwitchFollower> mapOldFllwrs;
     for (const auto& oF : lstCrntFllwrs) {
@@ -150,9 +151,28 @@ void AppController::handleFollowersFetched(const QList<TwitchFollower>& lstFtchd
         TwitchFollower oNwFllwr = oF;
         
         if (mapOldFllwrs.contains(oF.userId)) {
-            oNwFllwr.groupIds = mapOldFllwrs.value(oF.userId).groupIds;
+            // 既存ユーザー：履歴を引き継ぎ
+            const auto& oOld = mapOldFllwrs.value(oF.userId);
+            oNwFllwr.groupIds = oOld.groupIds;
+            oNwFllwr.followHistory = oOld.followHistory;
+            oNwFllwr.unfollowHistory = oOld.unfollowHistory;
+
+            // もし取得したフォロー日時が履歴の最後より新しければ追加
+            if (oOld.followHistory.isEmpty() || oOld.followHistory.last() < oF.followedAt) {
+                oNwFllwr.followHistory.append(oF.followedAt);
+            } else { /* 維持 */ }
+
         } else if (mapDltdFllwrs.contains(oF.userId)) {
-            oNwFllwr.groupIds = mapDltdFllwrs.value(oF.userId).groupIds;
+            // 復帰ユーザー：削除済みリストから復旧
+            const auto& oOld = mapDltdFllwrs.value(oF.userId);
+            oNwFllwr.groupIds = oOld.groupIds;
+            oNwFllwr.followHistory = oOld.followHistory;
+            oNwFllwr.unfollowHistory = oOld.unfollowHistory;
+
+            // 新しいフォロー日時を追加
+            oNwFllwr.followHistory.append(oF.followedAt);
+
+            // 削除済みリストから除去
             for (int i = 0; i < lstCrntDltdUsrs.size(); ++i) {
                 if (lstCrntDltdUsrs[i].userId == oF.userId) {
                     lstCrntDltdUsrs.removeAt(i);
@@ -160,17 +180,21 @@ void AppController::handleFollowersFetched(const QList<TwitchFollower>& lstFtchd
                 } else { /* skip */ }
             }
         } else {
-            // New follower
+            // 完全新規：履歴の最初を追加
+            oNwFllwr.followHistory.append(oF.followedAt);
         }
         lstNwCrntFllwrs.append(oNwFllwr);
     }
     
-    for (const auto& oF : lstCrntFllwrs) {
-        if (!setFtchdIds.contains(oF.userId)) {
-            if (!mapDltdFllwrs.contains(oF.userId)) {
-                lstCrntDltdUsrs.append(oF);
-            } else { /* skip */ }
-        } else { /* skip */ }
+    // 消失したユーザーを「削除済み」へ移動し、アンフォロー日を記録
+    for (const auto& oOld : lstCrntFllwrs) {
+        if (!setFtchdIds.contains(oOld.userId)) {
+            if (!mapDltdFllwrs.contains(oOld.userId)) {
+                TwitchFollower oDltd = oOld;
+                oDltd.unfollowHistory.append(oNow);
+                lstCrntDltdUsrs.append(oDltd);
+            } else { /* 既に削除済みリストにある場合は何もしない（最新のアンフォロー日は記録済み） */ }
+        } else { /* まだフォロー中 */ }
     }
 
     lstCrntFllwrs = lstNwCrntFllwrs;

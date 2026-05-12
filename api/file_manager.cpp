@@ -169,26 +169,58 @@ bool FileManager::loadAllListDat(QList<TwitchFollower>& lstFllwrs) {
     } else {
         lstFllwrs.clear();
         QStringList lstLns = szCsvDt.split('\n', Qt::SkipEmptyParts);
+        if (lstLns.isEmpty()) return false;
+
+        // ヘッダー行を解析してカラムインデックスを特定
+        QStringList lstHdr = lstLns[0].split(',');
+        QMap<QString, int> mapHdr;
+        for (int i = 0; i < lstHdr.size(); ++i) {
+            mapHdr[lstHdr[i].trimmed()] = i;
+        }
+
+        // 必須カラムの存在確認 (IDがあれば最低限読み込み可能とする)
+        if (!mapHdr.contains("ユーザID")) return false;
+
         for (int i = 1; i < lstLns.size(); ++i) {
             const QString& szLn = lstLns[i];
             QStringList lstPrts = szLn.split(',');
-            if (lstPrts.size() >= iCOL_FLW_MIN) {
-                TwitchFollower oFllwr;
-                oFllwr.userName = lstPrts[iIDX_FLW_NAME];
-                oFllwr.userLogin = lstPrts[iIDX_FLW_LOGIN];
-                oFllwr.userId = lstPrts[iIDX_FLW_ID];
-                if (lstPrts.size() >= iCOL_FLW_FULL) {
-                    QStringList lstGids = lstPrts[iIDX_FLW_GRP_IDS].split('|', Qt::SkipEmptyParts);
-                    for (const QString& szGid : lstGids) {
-                        oFllwr.groupIds.append(szGid.toInt());
-                    }
-                } else {
-                    // 追加属性なし
+            
+            TwitchFollower oFllwr;
+            // ヘッダーマップに基づいてデータを取得
+            if (mapHdr.contains("ユーザID")) oFllwr.userId = lstPrts.value(mapHdr["ユーザID"]);
+            if (mapHdr.contains("表示名")) oFllwr.userName = lstPrts.value(mapHdr["表示名"]);
+            if (mapHdr.contains("ユーザ名")) oFllwr.userLogin = lstPrts.value(mapHdr["ユーザ名"]);
+            
+            // グループID (複数保持)
+            if (mapHdr.contains("グループID")) {
+                QStringList lstGids = lstPrts.value(mapHdr["グループID"]).split('|', Qt::SkipEmptyParts);
+                for (const QString& szGid : lstGids) {
+                    oFllwr.groupIds.append(szGid.toInt());
                 }
-                lstFllwrs.append(oFllwr);
-            } else {
-                // 不正な行
             }
+
+            // 最新フォロー日時
+            if (mapHdr.contains("最新フォロー日時")) {
+                oFllwr.followedAt = QDateTime::fromString(lstPrts.value(mapHdr["最新フォロー日時"]), Qt::ISODate);
+            }
+
+            // フォロー履歴 (セミコロン区切り)
+            if (mapHdr.contains("フォロー履歴")) {
+                QStringList lstHist = lstPrts.value(mapHdr["フォロー履歴"]).split(';', Qt::SkipEmptyParts);
+                for (const QString& szDt : lstHist) {
+                    oFllwr.followHistory.append(QDateTime::fromString(szDt, Qt::ISODate));
+                }
+            }
+
+            // 解除履歴 (セミコロン区切り)
+            if (mapHdr.contains("解除履歴")) {
+                QStringList lstHist = lstPrts.value(mapHdr["解除履歴"]).split(';', Qt::SkipEmptyParts);
+                for (const QString& szDt : lstHist) {
+                    oFllwr.unfollowHistory.append(QDateTime::fromString(szDt, Qt::ISODate));
+                }
+            }
+
+            lstFllwrs.append(oFllwr);
         }
         return true;
     }
@@ -231,26 +263,44 @@ bool FileManager::loadDeletedUserDat(QList<TwitchFollower>& lstDltdUsrs) {
     } else {
         lstDltdUsrs.clear();
         QStringList lstLns = szCsvDt.split('\n', Qt::SkipEmptyParts);
+        if (lstLns.isEmpty()) return false;
+
+        // ヘッダー解析
+        QStringList lstHdr = lstLns[0].split(',');
+        QMap<QString, int> mapHdr;
+        for (int i = 0; i < lstHdr.size(); ++i) mapHdr[lstHdr[i].trimmed()] = i;
+
+        if (!mapHdr.contains("ユーザID")) return false;
+
         for (int i = 1; i < lstLns.size(); ++i) {
             const QString& szLn = lstLns[i];
             QStringList lstPrts = szLn.split(',');
-            if (lstPrts.size() >= iCOL_FLW_MIN) {
-                TwitchFollower oFllwr;
-                oFllwr.userName = lstPrts[iIDX_FLW_NAME];
-                oFllwr.userLogin = lstPrts[iIDX_FLW_LOGIN];
-                oFllwr.userId = lstPrts[iIDX_FLW_ID];
-                if (lstPrts.size() >= iCOL_FLW_FULL) {
-                    QStringList lstGids = lstPrts[iIDX_FLW_GRP_IDS].split('|', Qt::SkipEmptyParts);
-                    for (const QString& szGid : lstGids) {
-                        oFllwr.groupIds.append(szGid.toInt());
-                    }
-                } else {
-                    // 追加属性なし
-                }
-                lstDltdUsrs.append(oFllwr);
-            } else {
-                // 不正な行
+            
+            TwitchFollower oFllwr;
+            if (mapHdr.contains("ユーザID")) oFllwr.userId = lstPrts.value(mapHdr["ユーザID"]);
+            if (mapHdr.contains("表示名")) oFllwr.userName = lstPrts.value(mapHdr["表示名"]);
+            if (mapHdr.contains("ユーザ名")) oFllwr.userLogin = lstPrts.value(mapHdr["ユーザ名"]);
+            
+            if (mapHdr.contains("グループID")) {
+                QStringList lstGids = lstPrts.value(mapHdr["グループID"]).split('|', Qt::SkipEmptyParts);
+                for (const QString& szGid : lstGids) oFllwr.groupIds.append(szGid.toInt());
             }
+
+            if (mapHdr.contains("最新フォロー日時")) {
+                oFllwr.followedAt = QDateTime::fromString(lstPrts.value(mapHdr["最新フォロー日時"]), Qt::ISODate);
+            }
+
+            if (mapHdr.contains("フォロー履歴")) {
+                QStringList lstHist = lstPrts.value(mapHdr["フォロー履歴"]).split(';', Qt::SkipEmptyParts);
+                for (const QString& szDt : lstHist) oFllwr.followHistory.append(QDateTime::fromString(szDt, Qt::ISODate));
+            }
+
+            if (mapHdr.contains("解除履歴")) {
+                QStringList lstHist = lstPrts.value(mapHdr["解除履歴"]).split(';', Qt::SkipEmptyParts);
+                for (const QString& szDt : lstHist) oFllwr.unfollowHistory.append(QDateTime::fromString(szDt, Qt::ISODate));
+            }
+
+            lstDltdUsrs.append(oFllwr);
         }
         return true;
     }
@@ -265,16 +315,27 @@ bool FileManager::saveDeletedUserDat(const QList<TwitchFollower>& lstDltdUsrs) {
     QString szCsv = szHDR_FLW;
     for (int i = 0; i < lstDltdUsrs.size(); ++i) {
         const auto& oFllwr = lstDltdUsrs[i];
+        
         QStringList lstGids;
         for (int iGid : oFllwr.groupIds) {
             lstGids << QString::number(iGid);
         }
-        szCsv += QString("%1,%2,%3,%4,%5\n")
+
+        QStringList lstFlwHist;
+        for (const auto& dt : oFllwr.followHistory) lstFlwHist << dt.toString(Qt::ISODate);
+        
+        QStringList lstUnflwHist;
+        for (const auto& dt : oFllwr.unfollowHistory) lstUnflwHist << dt.toString(Qt::ISODate);
+
+        szCsv += QString("%1,%2,%3,%4,%5,%6,%7,%8\n")
                  .arg(i + 1)
                  .arg(oFllwr.userName)
                  .arg(oFllwr.userLogin)
                  .arg(oFllwr.userId)
-                 .arg(lstGids.join("|"));
+                 .arg(lstGids.join("|"))
+                 .arg(oFllwr.followedAt.toString(Qt::ISODate))
+                 .arg(lstFlwHist.join(";"))
+                 .arg(lstUnflwHist.join(";"));
     }
     return writeEncodedFile(szOutDirPth + "/" + szFN_DLTD_USR, szCsv);
 }
@@ -293,14 +354,22 @@ bool FileManager::saveAllListDat(const QList<TwitchFollower>& lstFllwrs) {
         for (int iGid : oFllwr.groupIds) {
             lstGidsStr << QString::number(iGid);
         }
-        QString szGidsCol = lstGidsStr.join("|");
+
+        QStringList lstFlwHist;
+        for (const auto& dt : oFllwr.followHistory) lstFlwHist << dt.toString(Qt::ISODate);
         
-        szCsvDt += QString("%1,%2,%3,%4,%5\n")
+        QStringList lstUnflwHist;
+        for (const auto& dt : oFllwr.unfollowHistory) lstUnflwHist << dt.toString(Qt::ISODate);
+        
+        szCsvDt += QString("%1,%2,%3,%4,%5,%6,%7,%8\n")
                    .arg(iNo++)
                    .arg(oFllwr.userName)
                    .arg(oFllwr.userLogin)
                    .arg(oFllwr.userId)
-                   .arg(szGidsCol);
+                   .arg(lstGidsStr.join("|"))
+                   .arg(oFllwr.followedAt.toString(Qt::ISODate))
+                   .arg(lstFlwHist.join(";"))
+                   .arg(lstUnflwHist.join(";"));
     }
     
     return writeEncodedFile(szOutDirPth + "/" + szFN_ALL_LST, szCsvDt);
@@ -339,14 +408,22 @@ bool FileManager::saveGroupListsDat(const QString& szGrpNm, const QList<TwitchFo
         for (int iGid : oFllwr.groupIds) {
             lstGidsStr << QString::number(iGid);
         }
-        QString szGidsCol = lstGidsStr.join("|");
+
+        QStringList lstFlwHist;
+        for (const auto& dt : oFllwr.followHistory) lstFlwHist << dt.toString(Qt::ISODate);
         
-        szCsvDt += QString("%1,%2,%3,%4,%5\n")
+        QStringList lstUnflwHist;
+        for (const auto& dt : oFllwr.unfollowHistory) lstUnflwHist << dt.toString(Qt::ISODate);
+        
+        szCsvDt += QString("%1,%2,%3,%4,%5,%6,%7,%8\n")
                    .arg(iNo++)
                    .arg(oFllwr.userName)
                    .arg(oFllwr.userLogin)
                    .arg(oFllwr.userId)
-                   .arg(szGidsCol);
+                   .arg(lstGidsStr.join("|"))
+                   .arg(oFllwr.followedAt.toString(Qt::ISODate))
+                   .arg(lstFlwHist.join(";"))
+                   .arg(lstUnflwHist.join(";"));
     }
     
     return writeEncodedFile(szTgtDir + "/" + szFN_LSTS, szCsvDt);

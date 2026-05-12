@@ -30,6 +30,11 @@
   - `void updateGroupTree(const QMap<int, QString>& groups)`
   - `void on_outDirTreeView_clicked(const QModelIndex &index)` (ツリークリックでリストの絞り込みを実行)
   - `void on_group_tree_context_menu(const QPoint& pos)` (リネーム・削除メニュー)
+- **ツリービューの構成**:
+  - 以下の順序でカテゴリを表示し、視覚的な分離を行う。
+  - 1. **システム予約グループ**: 「すべて (n)」「未所属 (n)」「削除済み (n)」
+  - 2. **区切り線**: 選択・操作不可のダミーアイテム（テキスト: `──────────`）
+  - 3. **ユーザー定義グループ**: ユーザーが作成したフォルダ群。
 - **データアクセス規約**:
   - リストビューの各行アイテム（第0列等）に `Qt::UserRole` で `userId` を格納する。
   - プログラム内では `COL_USER_ID` 等の定数による列直接参照を極力避け、`UserRole` からのデータ取得を優先する。
@@ -69,6 +74,9 @@
 - `QString userId`: ユーザーID
 - `QString userName`: 表示名 (Display Name)
 - `QString userLogin`: ログインID
+- `QDateTime followedAt`: Twitch APIから取得した最新のフォロー日時
+- `QList<QDateTime> followHistory`: 過去のフォロー日時履歴（昇順）
+- `QList<QDateTime> unfollowHistory`: 解除検知日時の履歴（昇順）
 - `QList<int> groupIds`: 所属するグループIDのリスト（複数可。要素数0の場合は「未所属」として扱う）
 
 ### 2.2 ActionRecord (操作履歴)
@@ -184,6 +192,14 @@
     1. **リストビュー表示時**: `MainWindow::setFollowers` 内で各行にセット。
     2. **CSVエクスポート時**: `AppController` での書き出し時に生成。
 
+### 6.5 履歴詳細（ツールチップ）の表示仕様
+- **表示内容**: `followHistory` と `unfollowHistory` を対応させた履歴テーブル。
+- **フォーマット**: HTML を使用し、罫線なしの整列された表形式で表示。
+- **生成ルール**:
+    - フォロー日とアンフォロー日をペアにして 1 行ずつ表示。
+    - 現在フォロー中の場合、最後の「アンフォロー」セルは空文字または「...」とする。
+    - メインリスト表示用には `followHistory.first()` (最古) と `unfollowHistory.last()` (最新) を抽出して使用する。
+
 ---
 
 ## 7. 自動テスト設計 (Automated Testing)
@@ -210,3 +226,18 @@
 - **パイプライン**:
   - Git プッシュを検知して自動ビルドを開始。
   - テスト失敗時はビルドを不安定（Unstable）または失敗（Failure）とし、開発者に通知。
+
+---
+
+## 8. 履歴蓄積ロジック (History Synchronization)
+
+### 8.1 差分チェックアルゴリズム
+API から取得した `NewList` とローカルの `OldList` を `userId` をキーに比較する。
+
+1.  **新規出現 (New in API)**:
+    - ローカルに存在しない場合：`followHistory` に `followedAt` を追加。
+    - ローカルに存在（かつ前回消失状態）していた場合：`followHistory` に最新の `followedAt` を追加して「復帰」とみなす。
+2.  **継続 (Exists in both)**:
+    - API の `followedAt` がローカルの最新履歴より新しい場合：`followHistory` に追加（Twitch 側で一度解除して即再フォローされた可能性などへの対応）。
+3.  **消失 (Missing in API)**:
+    - ローカルには存在するが API にない場合：そのユーザーを `unfollowHistory` に「現在時刻」を追加して保存。

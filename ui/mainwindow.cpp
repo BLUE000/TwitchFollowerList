@@ -62,7 +62,7 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
         // ユーザーグループ(>=0) または 未所属(-2) または すべて(-1)
         // へのドロップを許可
         if (iGid >= 0 || iGid == FileManager::iGRP_ID_UNASSIGNED ||
-            iGid == FileManager::iGRP_ID_ALL) {
+            iGid == FileManager::iGRP_ID_ALL || iGid == FileManager::iGRP_ID_DELETED) {
           QItemSelectionModel *pSlctn = pUi->followerListView->selectionModel();
           QModelIndexList lstIdxs = pSlctn->selectedRows(); // selectedIndexes ではなく行を選択
           QSet<int> setSourceRows;
@@ -228,7 +228,7 @@ void MainWindow::onFollowerListContextMenu(const QPoint &pos) {
 void MainWindow::setupUiExtra() {
   pMdlFllwr = new QStandardItemModel(this);
   pMdlFllwr->setHorizontalHeaderLabels(
-      {"表示名", "ユーザー名", "ID", "チャンネルURL", "グループ"});
+      {"表示名", "ユーザー名", "ID", "チャンネルURL", "グループ", "フォロー開始日(最古)", "解除検知日(最新)"});
 
   pProxyMdl = new QSortFilterProxyModel(this);
   pProxyMdl->setSourceModel(pMdlFllwr);
@@ -382,6 +382,36 @@ void MainWindow::setFollowers(const QList<TwitchFollower> &lstFllwrs,
     pItmGrp->setEditable(false);
     lstItems << pItmGrp;
 
+    // フォロー開始日 (最古)
+    QString szFlwAt = oFllwr.followHistory.isEmpty() ? "" : oFllwr.followHistory.first().toString("yyyy-MM-dd HH:mm");
+    QStandardItem *pItmFlw = new QStandardItem(szFlwAt);
+    pItmFlw->setEditable(false);
+    lstItems << pItmFlw;
+
+    // 解除検知日 (最新)
+    QString szUnflwAt = oFllwr.unfollowHistory.isEmpty() ? "" : oFllwr.unfollowHistory.last().toString("yyyy-MM-dd HH:mm");
+    QStandardItem *pItmUnflw = new QStandardItem(szUnflwAt);
+    pItmUnflw->setEditable(false);
+    lstItems << pItmUnflw;
+
+    // ツールチップに全履歴を表示 (HTML テーブル形式)
+    QString szTooltip = "<html><head><style>th, td { padding-right: 15px; }</style></head><body>";
+    szTooltip += "<b>履歴 (Follow History)</b><br>";
+    szTooltip += "<table style='border-collapse: collapse;'>";
+    szTooltip += "<tr><th align='left'>フォロー</th><th align='left'>アンフォロー</th></tr>";
+    
+    int iMax = qMax(oFllwr.followHistory.size(), oFllwr.unfollowHistory.size());
+    for (int i = 0; i < iMax; ++i) {
+        QString szF = (i < oFllwr.followHistory.size()) ? oFllwr.followHistory[i].toString("yyyy-MM-dd HH:mm") : "...";
+        QString szU = (i < oFllwr.unfollowHistory.size()) ? oFllwr.unfollowHistory[i].toString("yyyy-MM-dd HH:mm") : "...";
+        szTooltip += QString("<tr><td>%1</td><td>%2</td></tr>").arg(szF, szU);
+    }
+    szTooltip += "</table></body></html>";
+    
+    for (QStandardItem *pItm : lstItems) {
+        pItm->setToolTip(szTooltip);
+    }
+
     pMdlFllwr->appendRow(lstItems);
   }
 
@@ -445,6 +475,14 @@ void MainWindow::setGroups(const QMap<int, QString> &mapGrps,
         FileManager::iGRP_ID_UNASSIGNED) {
       pItmAll->removeRow(i);
     }
+  }
+
+  // ユーザー定義グループを追加する前に区切り線を入れる
+  if (!mapGrps.isEmpty()) {
+      QStandardItem *pSeparator = new QStandardItem("──────────");
+      pSeparator->setEnabled(false);
+      pSeparator->setSelectable(false);
+      pItmAll->appendRow(pSeparator);
   }
 
   // ユーザー定義グループを追加

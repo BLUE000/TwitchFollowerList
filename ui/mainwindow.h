@@ -38,6 +38,8 @@ public:
   static const int COL_USER_ID = 2;
   static const int COL_CHANNEL_URL = 3;
   static const int COL_GROUPS = 4;
+  static const int COL_FOLLOWED_AT = 5;
+  static const int COL_UNFOLLOWED_AT = 6;
 
   /**
    * @brief コンストラクタ。
