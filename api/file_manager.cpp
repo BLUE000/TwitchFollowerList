@@ -158,6 +158,29 @@ QString FileManager::readEncodedFile(const QString& szFilePth) {
 }
 
 /**
+ * @brief カラム内の記号を内部保存用にエンコードする。
+ */
+QString FileManager::escapeInternal(const QString& szText) {
+    QString szRes = szText;
+    szRes.replace(",", "&comma;");
+    szRes.replace("\"", "&quot;");
+    szRes.replace("\n", "&nl;");
+    szRes.replace("\r", ""); // Windows 改行対応（CR削除）
+    return szRes;
+}
+
+/**
+ * @brief 内部保存用エンコードを平文に戻す。
+ */
+QString FileManager::unescapeInternal(const QString& szEncoded) {
+    QString szRes = szEncoded;
+    szRes.replace("&comma;", ",");
+    szRes.replace("&quot;", "\"");
+    szRes.replace("&nl;", "\n");
+    return szRes;
+}
+
+/**
  * @brief 全フォロワーリストをロードする。
  * @param lstFllwrs 格納先。
  * @return 成功なら true。
@@ -218,6 +241,11 @@ bool FileManager::loadAllListDat(QList<TwitchFollower>& lstFllwrs) {
                 for (const QString& szDt : lstHist) {
                     oFllwr.unfollowHistory.append(QDateTime::fromString(szDt, Qt::ISODate));
                 }
+            }
+
+            // メモ (v2.0)
+            if (mapHdr.contains("メモ")) {
+                oFllwr.memo = unescapeInternal(lstPrts.value(mapHdr["メモ"]));
             }
 
             lstFllwrs.append(oFllwr);
@@ -295,9 +323,15 @@ bool FileManager::loadDeletedUserDat(QList<TwitchFollower>& lstDltdUsrs) {
                 for (const QString& szDt : lstHist) oFllwr.followHistory.append(QDateTime::fromString(szDt, Qt::ISODate));
             }
 
+            // 解除履歴 (セミコロン区切り)
             if (mapHdr.contains("解除履歴")) {
                 QStringList lstHist = lstPrts.value(mapHdr["解除履歴"]).split(';', Qt::SkipEmptyParts);
                 for (const QString& szDt : lstHist) oFllwr.unfollowHistory.append(QDateTime::fromString(szDt, Qt::ISODate));
+            }
+
+            // メモ (v2.0)
+            if (mapHdr.contains("メモ")) {
+                oFllwr.memo = unescapeInternal(lstPrts.value(mapHdr["メモ"]));
             }
 
             lstDltdUsrs.append(oFllwr);
@@ -327,7 +361,7 @@ bool FileManager::saveDeletedUserDat(const QList<TwitchFollower>& lstDltdUsrs) {
         QStringList lstUnflwHist;
         for (const auto& dt : oFllwr.unfollowHistory) lstUnflwHist << dt.toString(Qt::ISODate);
 
-        szCsv += QString("%1,%2,%3,%4,%5,%6,%7,%8\n")
+        szCsv += QString("%1,%2,%3,%4,%5,%6,%7,%8,%9\n")
                  .arg(i + 1)
                  .arg(oFllwr.userName)
                  .arg(oFllwr.userLogin)
@@ -335,7 +369,8 @@ bool FileManager::saveDeletedUserDat(const QList<TwitchFollower>& lstDltdUsrs) {
                  .arg(lstGids.join("|"))
                  .arg(oFllwr.followedAt.toString(Qt::ISODate))
                  .arg(lstFlwHist.join(";"))
-                 .arg(lstUnflwHist.join(";"));
+                 .arg(lstUnflwHist.join(";"))
+                 .arg(escapeInternal(oFllwr.memo));
     }
     return writeEncodedFile(szOutDirPth + "/" + szFN_DLTD_USR, szCsv);
 }
@@ -361,7 +396,7 @@ bool FileManager::saveAllListDat(const QList<TwitchFollower>& lstFllwrs) {
         QStringList lstUnflwHist;
         for (const auto& dt : oFllwr.unfollowHistory) lstUnflwHist << dt.toString(Qt::ISODate);
         
-        szCsvDt += QString("%1,%2,%3,%4,%5,%6,%7,%8\n")
+        szCsvDt += QString("%1,%2,%3,%4,%5,%6,%7,%8,%9\n")
                    .arg(iNo++)
                    .arg(oFllwr.userName)
                    .arg(oFllwr.userLogin)
@@ -369,7 +404,8 @@ bool FileManager::saveAllListDat(const QList<TwitchFollower>& lstFllwrs) {
                    .arg(lstGidsStr.join("|"))
                    .arg(oFllwr.followedAt.toString(Qt::ISODate))
                    .arg(lstFlwHist.join(";"))
-                   .arg(lstUnflwHist.join(";"));
+                   .arg(lstUnflwHist.join(";"))
+                   .arg(escapeInternal(oFllwr.memo));
     }
     
     return writeEncodedFile(szOutDirPth + "/" + szFN_ALL_LST, szCsvDt);
@@ -415,7 +451,7 @@ bool FileManager::saveGroupListsDat(const QString& szGrpNm, const QList<TwitchFo
         QStringList lstUnflwHist;
         for (const auto& dt : oFllwr.unfollowHistory) lstUnflwHist << dt.toString(Qt::ISODate);
         
-        szCsvDt += QString("%1,%2,%3,%4,%5,%6,%7,%8\n")
+        szCsvDt += QString("%1,%2,%3,%4,%5,%6,%7,%8,%9\n")
                    .arg(iNo++)
                    .arg(oFllwr.userName)
                    .arg(oFllwr.userLogin)
@@ -423,7 +459,8 @@ bool FileManager::saveGroupListsDat(const QString& szGrpNm, const QList<TwitchFo
                    .arg(lstGidsStr.join("|"))
                    .arg(oFllwr.followedAt.toString(Qt::ISODate))
                    .arg(lstFlwHist.join(";"))
-                   .arg(lstUnflwHist.join(";"));
+                   .arg(lstUnflwHist.join(";"))
+                   .arg(escapeInternal(oFllwr.memo));
     }
     
     return writeEncodedFile(szTgtDir + "/" + szFN_LSTS, szCsvDt);

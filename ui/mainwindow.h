@@ -40,6 +40,7 @@ public:
   static const int COL_GROUPS = 4;
   static const int COL_FOLLOWED_AT = 5;
   static const int COL_UNFOLLOWED_AT = 6;
+  static const int COL_MEMO = 7;
 
   /**
    * @brief コンストラクタ。
@@ -147,6 +148,13 @@ signals:
    * @param iGrpId 選択されたグループ ID。
    */
   void groupSelected(int iGrpId);
+
+  /**
+   * @brief フォロワーのメモが変更された際のシグナル。
+   * @param szUsrId ユーザー ID。
+   * @param szMemo 新しいメモ。
+   */
+  void followerMemoChanged(const QString &szUsrId, const QString &szMemo);
 
 private slots:
   void onLoginButtonClicked();

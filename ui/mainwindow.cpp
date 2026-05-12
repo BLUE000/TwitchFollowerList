@@ -18,6 +18,7 @@
 #include <QSet>
 #include <QSortFilterProxyModel>
 #include <QStandardItemModel>
+#include <QSettings>
 #include <QUrl>
 
 /**
@@ -228,20 +229,35 @@ void MainWindow::onFollowerListContextMenu(const QPoint &pos) {
 void MainWindow::setupUiExtra() {
   pMdlFllwr = new QStandardItemModel(this);
   pMdlFllwr->setHorizontalHeaderLabels(
-      {"表示名", "ユーザー名", "ID", "チャンネルURL", "グループ", "フォロー開始日(最古)", "解除検知日(最新)"});
+      {"表示名", "ユーザー名", "ID", "チャンネルURL", "グループ", "フォロー開始日(最古)", "解除検知日(最新)", "メモ"});
 
   pProxyMdl = new QSortFilterProxyModel(this);
   pProxyMdl->setSourceModel(pMdlFllwr);
+  pProxyMdl->setSortRole(Qt::UserRole); // UserRole に基づいてソート
   pProxyMdl->setFilterCaseSensitivity(Qt::CaseInsensitive);
   pProxyMdl->setFilterKeyColumn(-1); // 全列を検索対象にする
 
   pUi->followerListView->setModel(pProxyMdl);
+  pUi->followerListView->setSortingEnabled(true); // ソートを有効化
 
   // 列幅を内容に合わせて自動調整し、入り切らない場合はスクロールバーを表示
   // 初期状態は手動調整可能にし、データセット時に内容に合わせる
   pUi->followerListView->horizontalHeader()->setSectionResizeMode(
       QHeaderView::Interactive);
   pUi->followerListView->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+
+  // ソート状態の復元 (v2.0)
+  QSettings oSet;
+  int iSortCol = oSet.value("ui/sortColumn", static_cast<int>(COL_DISPLAY_NAME)).toInt();
+  Qt::SortOrder eOrder = static_cast<Qt::SortOrder>(oSet.value("ui/sortOrder", static_cast<int>(Qt::AscendingOrder)).toInt());
+  pUi->followerListView->sortByColumn(iSortCol, eOrder);
+
+  // ヘッダークリック時にソート状態を保存する
+  connect(pUi->followerListView->horizontalHeader(), &QHeaderView::sectionClicked, [this]() {
+      QSettings oSet;
+      oSet.setValue("ui/sortColumn", pProxyMdl->sortColumn());
+      oSet.setValue("ui/sortOrder", static_cast<int>(pProxyMdl->sortOrder()));
+  });
 
   pMdlGrp = new QStandardItemModel(this);
   pMdlGrp->setHorizontalHeaderLabels({"グループ名"});
@@ -312,6 +328,18 @@ void MainWindow::setupUiExtra() {
   // 検索ボックスの接続
   connect(pUi->searchLineEdit, &QLineEdit::textChanged, this,
           &MainWindow::onSearchTextChanged);
+
+  // メモ編集の検知 (v2.0)
+  connect(pMdlFllwr, &QStandardItemModel::dataChanged, [this](const QModelIndex &idx) {
+      if (idx.column() == COL_MEMO) {
+          QStandardItem *pItm = pMdlFllwr->itemFromIndex(idx);
+          if (pItm) {
+              QString szUsrId = pMdlFllwr->item(idx.row(), 0)->data(Qt::UserRole).toString();
+              QString szMemo = pItm->text();
+              emit followerMemoChanged(szUsrId, szMemo);
+          }
+      }
+  });
 }
 
 void MainWindow::onSearchTextChanged(const QString &szTxt) {
@@ -392,7 +420,18 @@ void MainWindow::setFollowers(const QList<TwitchFollower> &lstFllwrs,
     QString szUnflwAt = oFllwr.unfollowHistory.isEmpty() ? "" : oFllwr.unfollowHistory.last().toString("yyyy-MM-dd HH:mm");
     QStandardItem *pItmUnflw = new QStandardItem(szUnflwAt);
     pItmUnflw->setEditable(false);
+    pItmUnflw->setData(oFllwr.unfollowHistory.isEmpty() ? QDateTime() : oFllwr.unfollowHistory.last(), Qt::UserRole); // ソート用
     lstItems << pItmUnflw;
+
+    // メモ (v2.0)
+    QStandardItem *pItmMemo = new QStandardItem(oFllwr.memo);
+    pItmMemo->setEditable(true);
+    pItmMemo->setData(oFllwr.memo, Qt::UserRole); // ソート用
+    lstItems << pItmMemo;
+
+    // ソート用データの追加設定 (表示名、日付など)
+    pItmDisplayName->setData(oFllwr.userName, Qt::UserRole + 2); // ソート用
+    pItmFlw->setData(oFllwr.followHistory.isEmpty() ? QDateTime() : oFllwr.followHistory.first(), Qt::UserRole);
 
     // ツールチップに全履歴を表示 (HTML テーブル形式)
     QString szTooltip = "<html><head><style>th, td { padding-right: 15px; }</style></head><body>";

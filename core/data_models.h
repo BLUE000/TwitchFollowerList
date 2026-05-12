@@ -14,6 +14,7 @@ struct TwitchFollower {
   QList<QDateTime> followHistory;   // 過去のフォロー日時履歴
   QList<QDateTime> unfollowHistory; // 解除検知日時の履歴
   QList<int> groupIds; // 所属するグループIDのリスト。空の場合は「未所属」
+  QString memo;       // ユーザーごとの自由記述メモ
 };
 
 // 操作履歴（Undo/Redo用）の1単位を示す構造体

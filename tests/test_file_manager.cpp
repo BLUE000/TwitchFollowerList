@@ -36,3 +36,25 @@ TEST_F(FileManagerTest, EmptyStringHandling) {
     QString decoded = fileManager->decodeData(encoded);
     EXPECT_EQ(originalCsv, decoded);
 }
+
+// 内部エンコード（&comma; 等）のテスト (v2.0)
+TEST_F(FileManagerTest, InternalEncodingTest) {
+    QString memoWithSymbols = "Test, \"Memo\"\nNext Line";
+    
+    QList<TwitchFollower> followers;
+    TwitchFollower f;
+    f.userId = "123";
+    f.userName = "TestUser";
+    f.memo = memoWithSymbols;
+    followers.append(f);
+
+    // 保存して即読み込み
+    fileManager->saveAllListDat(followers);
+    
+    QList<TwitchFollower> loaded;
+    fileManager->loadAllListDat(loaded);
+
+    ASSERT_EQ(loaded.size(), 1);
+    EXPECT_EQ(loaded[0].userId, f.userId);
+    EXPECT_EQ(loaded[0].memo, memoWithSymbols);
+}

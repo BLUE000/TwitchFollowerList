@@ -108,6 +108,7 @@ public slots:
    * @param iGrpId 対象のグループ ID。
    * @param szNewNm 新しいグループ名。
    */
+  void handleFollowerMemoChanged(const QString &szUsrId, const QString &szMemo);
   void handle_group_renamed(int iGrpId, const QString &szNewNm);
 
   /**
