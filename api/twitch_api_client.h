@@ -88,6 +88,7 @@ private:
     static constexpr const char* szJS_USR_ID     = "user_id";
     static constexpr const char* szJS_USR_LGN    = "user_login";
     static constexpr const char* szJS_USR_NM     = "user_name";
+    static constexpr const char* szJS_FOLLOWED_AT = "followed_at";
     static constexpr const char* szJS_PAGINATION = "pagination";
     static constexpr const char* szJS_CURSOR     = "cursor";
 

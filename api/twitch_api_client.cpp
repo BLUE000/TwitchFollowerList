@@ -130,6 +130,7 @@ void TwitchApiClient::onFollowersReply(QNetworkReply *pRply) {
         oFllwr.userId = oF[szJS_USR_ID].toString();
         oFllwr.userLogin = oF[szJS_USR_LGN].toString();
         oFllwr.userName = oF[szJS_USR_NM].toString();
+        oFllwr.followedAt = QDateTime::fromString(oF[szJS_FOLLOWED_AT].toString(), Qt::ISODate);
         lstAllFllwrs.append(oFllwr);
     }
 
