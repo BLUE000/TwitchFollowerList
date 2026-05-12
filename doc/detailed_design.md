@@ -26,7 +26,7 @@
 - **スロット**:
   - `void on_twitchLoginButton_clicked()`
   - `void onLoginSuccess()`
-  - `void updateFollowerList(const QList<TwitchFollower>& followers)`
+  - `void updateFollowerList(const QList<TwitchFollower>& followers)`: メモ列を含む最新情報をリストに反映する。
   - `void updateGroupTree(const QMap<int, QString>& groups)`
   - `void on_outDirTreeView_clicked(const QModelIndex &index)` (ツリークリックでリストの絞り込みを実行)
   - `void on_group_tree_context_menu(const QPoint& pos)` (リネーム・削除メニュー)
@@ -38,8 +38,10 @@
 - **データアクセス規約**:
   - リストビューの各行アイテム（第0列等）に `Qt::UserRole` で `userId` を格納する。
   - プログラム内では `COL_USER_ID` 等の定数による列直接参照を極力避け、`UserRole` からのデータ取得を優先する。
-- **イベント**:
-  - `void dropEvent(QDropEvent *event)` (リストからツリーへのDnD処理)
+- **ソート機能**:
+  - `pProxyMdl->setSortRole(Qt::UserRole)` を設定し、IDや日付などの非表示データに基づく正確な並べ替えを行う。
+  - `pUi->followerListView->setSortingEnabled(true)` により、ヘッダークリックでのソートを有効化する。
+  - ソート状態（列インデックス・順序）は `QSettings` を用いて永続化する。
 
 ### 1.2 Core層 (Business Logic)
 - **AppController クラス**:
@@ -77,7 +79,8 @@
 - `QDateTime followedAt`: Twitch APIから取得した最新のフォロー日時
 - `QList<QDateTime> followHistory`: 過去のフォロー日時履歴（昇順）
 - `QList<QDateTime> unfollowHistory`: 解除検知日時の履歴（昇順）
-- `QList<int> groupIds`: 所属するグループIDのリスト（複数可。要素数0の場合は「未所属」として扱う）
+- `QList<int> groupIds`: 所属するグループIDのリスト
+- `QString memo`: ユーザーごとの自由記述メモ
 
 ### 2.2 ActionRecord (操作履歴)
 - 操作の種類、対象、および変更前後の値を保持。
