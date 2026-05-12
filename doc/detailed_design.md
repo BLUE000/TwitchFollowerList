@@ -26,7 +26,7 @@
 - **スロット**:
   - `void on_twitchLoginButton_clicked()`
   - `void onLoginSuccess()`
-  - `void updateFollowerList(const QList<TwitchFollower>& followers)`: メモ列を含む最新情報をリストに反映する。
+  - `void updateFollowerList(const QList<TwitchFollower>& followers)`: メモ列やフォロー削除日を含む最新情報をリストに反映する。
   - `void updateGroupTree(const QMap<int, QString>& groups)`
   - `void on_outDirTreeView_clicked(const QModelIndex &index)` (ツリークリックでリストの絞り込みを実行)
   - `void on_group_tree_context_menu(const QPoint& pos)` (リネーム・削除メニュー)
@@ -78,7 +78,7 @@
 - `QString userLogin`: ログインID
 - `QDateTime followedAt`: Twitch APIから取得した最新のフォロー日時
 - `QList<QDateTime> followHistory`: 過去のフォロー日時履歴（昇順）
-- `QList<QDateTime> unfollowHistory`: 解除検知日時の履歴（昇順）
+- `QList<QDateTime> unfollowHistory`: フォロー削除（解除）検知日時の履歴（昇順）
 - `QList<int> groupIds`: 所属するグループIDのリスト
 - `QString memo`: ユーザーごとの自由記述メモ
   - **内部保存用エンコード**: カンマ（`,`）➔ `&comma;`、引用符（`"`）➔ `&quot;`、改行（`\n`）➔ `&nl;` に置換して 1 行を維持する。

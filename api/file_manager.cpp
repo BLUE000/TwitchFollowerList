@@ -235,9 +235,9 @@ bool FileManager::loadAllListDat(QList<TwitchFollower>& lstFllwrs) {
                 }
             }
 
-            // 解除履歴 (セミコロン区切り)
-            if (mapHdr.contains("解除履歴")) {
-                QStringList lstHist = lstPrts.value(mapHdr["解除履歴"]).split(';', Qt::SkipEmptyParts);
+            // フォロー削除履歴 (セミコロン区切り)
+            if (mapHdr.contains("フォロー削除履歴")) {
+                QStringList lstHist = lstPrts.value(mapHdr["フォロー削除履歴"]).split(';', Qt::SkipEmptyParts);
                 for (const QString& szDt : lstHist) {
                     oFllwr.unfollowHistory.append(QDateTime::fromString(szDt, Qt::ISODate));
                 }
@@ -323,9 +323,9 @@ bool FileManager::loadDeletedUserDat(QList<TwitchFollower>& lstDltdUsrs) {
                 for (const QString& szDt : lstHist) oFllwr.followHistory.append(QDateTime::fromString(szDt, Qt::ISODate));
             }
 
-            // 解除履歴 (セミコロン区切り)
-            if (mapHdr.contains("解除履歴")) {
-                QStringList lstHist = lstPrts.value(mapHdr["解除履歴"]).split(';', Qt::SkipEmptyParts);
+            // フォロー削除履歴 (セミコロン区切り)
+            if (mapHdr.contains("フォロー削除履歴")) {
+                QStringList lstHist = lstPrts.value(mapHdr["フォロー削除履歴"]).split(';', Qt::SkipEmptyParts);
                 for (const QString& szDt : lstHist) oFllwr.unfollowHistory.append(QDateTime::fromString(szDt, Qt::ISODate));
             }
 

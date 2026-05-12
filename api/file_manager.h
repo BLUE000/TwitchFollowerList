@@ -172,7 +172,7 @@ private:
 
 
     // CSV 見出し文字列
-    static constexpr const char* szHDR_FLW = "No,表示名,ユーザ名,ユーザID,グループID,最新フォロー日時,フォロー履歴,解除履歴,メモ\n";
+    static constexpr const char* szHDR_FLW = "No,表示名,ユーザ名,ユーザID,グループID,最新フォロー日時,フォロー履歴,フォロー削除履歴,メモ\n";
     static constexpr const char* szHDR_GRP = "グループID,グループ名\n";
 
     // ファイル名規定
