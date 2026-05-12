@@ -176,7 +176,7 @@ void MainWindow::onFollowerListContextMenu(const QPoint &pos) {
     for (int i = 0; i < pItmAll->rowCount(); ++i) {
       QStandardItem *pChild = pItmAll->child(i);
       int iGid = pChild->data(Qt::UserRole).toInt();
-      if (iGid >= 0) { // ユーザー定義グループのみ
+      if (iGid > 0) { // ユーザー定義グループのみ (ID >= 1)
         QAction *pAct = pSubAdd->addAction(pChild->text());
         connect(pAct, &QAction::triggered, [this, lstTargetIds, iGid]() {
           emit followersAssignedToGroup(lstTargetIds, iGid);
@@ -519,6 +519,7 @@ void MainWindow::setGroups(const QMap<int, QString> &mapGrps,
   // ユーザー定義グループを追加する前に区切り線を入れる
   if (!mapGrps.isEmpty()) {
       QStandardItem *pSeparator = new QStandardItem("──────────");
+      pSeparator->setData(-99, Qt::UserRole); // 明示的に無効な ID を設定
       pSeparator->setEnabled(false);
       pSeparator->setSelectable(false);
       pItmAll->appendRow(pSeparator);
