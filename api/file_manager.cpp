@@ -267,14 +267,20 @@ bool FileManager::loadGroupsListDat(QMap<int, QString>& mapGrps) {
     } else {
         mapGrps.clear();
         QStringList lstLns = szCsvDt.split('\n', Qt::SkipEmptyParts);
+        if (lstLns.isEmpty()) return false;
+
+        // ヘッダー解析
+        QStringList lstHdr = lstLns[0].split(',');
+        QMap<QString, int> mapHdr;
+        for (int i = 0; i < lstHdr.size(); ++i) mapHdr[lstHdr[i].trimmed()] = i;
+
+        if (!mapHdr.contains("グループID") || !mapHdr.contains("グループ名")) return false;
+
         for (int i = 1; i < lstLns.size(); ++i) {
-            const QString& szLn = lstLns[i];
-            QStringList lstPrts = szLn.split(',');
-            if (lstPrts.size() >= iCOL_GRP_MIN) {
-                mapGrps.insert(lstPrts[iIDX_GRP_ID].toInt(), lstPrts[iIDX_GRP_NAME]);
-            } else {
-                // 不正な行
-            }
+            QStringList lstPrts = lstLns[i].split(',');
+            int iGid = lstPrts.value(mapHdr["グループID"]).toInt();
+            QString szGNm = lstPrts.value(mapHdr["グループ名"]);
+            mapGrps.insert(iGid, szGNm);
         }
         return true;
     }
@@ -350,30 +356,7 @@ bool FileManager::loadDeletedUserDat(QList<TwitchFollower>& lstDltdUsrs) {
 bool FileManager::saveDeletedUserDat(const QList<TwitchFollower>& lstDltdUsrs) {
     QString szCsv = szHDR_FLW;
     for (int i = 0; i < lstDltdUsrs.size(); ++i) {
-        const auto& oFllwr = lstDltdUsrs[i];
-        
-        QStringList lstGids;
-        for (int iGid : oFllwr.groupIds) {
-            lstGids << QString::number(iGid);
-        }
-
-        QStringList lstFlwHist;
-        for (const auto& dt : oFllwr.followHistory) lstFlwHist << dt.toString(Qt::ISODate);
-        
-        QStringList lstUnflwHist;
-        for (const auto& dt : oFllwr.unfollowHistory) lstUnflwHist << dt.toString(Qt::ISODate);
-
-        szCsv += QString("%1,%2,%3,%4,%5,%6,%7,%8,%9,%10\n")
-                 .arg(i + 1)
-                 .arg(escapeInternal(oFllwr.nickname))
-                 .arg(oFllwr.userName)
-                 .arg(oFllwr.userLogin)
-                 .arg(oFllwr.userId)
-                 .arg(lstGids.join("|"))
-                 .arg(oFllwr.followedAt.toString(Qt::ISODate))
-                 .arg(lstFlwHist.join(";"))
-                 .arg(lstUnflwHist.join(";"))
-                 .arg(escapeInternal(oFllwr.memo));
+        szCsv += serializeFollower(lstDltdUsrs[i], i + 1);
     }
     return writeEncodedFile(szOutDirPth + "/" + szFN_DLTD_USR, szCsv);
 }
@@ -385,33 +368,10 @@ bool FileManager::saveDeletedUserDat(const QList<TwitchFollower>& lstDltdUsrs) {
  */
 bool FileManager::saveAllListDat(const QList<TwitchFollower>& lstFllwrs) {
     QString szCsvDt = szHDR_FLW;
-    
     int iNo = 1;
     for (const auto& oFllwr : lstFllwrs) {
-        QStringList lstGidsStr;
-        for (int iGid : oFllwr.groupIds) {
-            lstGidsStr << QString::number(iGid);
-        }
-
-        QStringList lstFlwHist;
-        for (const auto& dt : oFllwr.followHistory) lstFlwHist << dt.toString(Qt::ISODate);
-        
-        QStringList lstUnflwHist;
-        for (const auto& dt : oFllwr.unfollowHistory) lstUnflwHist << dt.toString(Qt::ISODate);
-        
-        szCsvDt += QString("%1,%2,%3,%4,%5,%6,%7,%8,%9,%10\n")
-                   .arg(iNo++)
-                   .arg(escapeInternal(oFllwr.nickname))
-                   .arg(oFllwr.userName)
-                   .arg(oFllwr.userLogin)
-                   .arg(oFllwr.userId)
-                   .arg(lstGidsStr.join("|"))
-                   .arg(oFllwr.followedAt.toString(Qt::ISODate))
-                   .arg(lstFlwHist.join(";"))
-                   .arg(lstUnflwHist.join(";"))
-                   .arg(escapeInternal(oFllwr.memo));
+        szCsvDt += serializeFollower(oFllwr, iNo++);
     }
-    
     return writeEncodedFile(szOutDirPth + "/" + szFN_ALL_LST, szCsvDt);
 }
 
@@ -441,33 +401,10 @@ bool FileManager::saveGroupListsDat(const QString& szGrpNm, const QList<TwitchFo
     QDir().mkpath(szTgtDir);
     
     QString szCsvDt = szHDR_FLW;
-    
     int iNo = 1;
     for (const auto& oFllwr : lstGrpFllwrs) {
-        QStringList lstGidsStr;
-        for (int iGid : oFllwr.groupIds) {
-            lstGidsStr << QString::number(iGid);
-        }
-
-        QStringList lstFlwHist;
-        for (const auto& dt : oFllwr.followHistory) lstFlwHist << dt.toString(Qt::ISODate);
-        
-        QStringList lstUnflwHist;
-        for (const auto& dt : oFllwr.unfollowHistory) lstUnflwHist << dt.toString(Qt::ISODate);
-        
-        szCsvDt += QString("%1,%2,%3,%4,%5,%6,%7,%8,%9,%10\n")
-                   .arg(iNo++)
-                   .arg(escapeInternal(oFllwr.nickname))
-                   .arg(oFllwr.userName)
-                   .arg(oFllwr.userLogin)
-                   .arg(oFllwr.userId)
-                   .arg(lstGidsStr.join("|"))
-                   .arg(oFllwr.followedAt.toString(Qt::ISODate))
-                   .arg(lstFlwHist.join(";"))
-                   .arg(lstUnflwHist.join(";"))
-                   .arg(escapeInternal(oFllwr.memo));
+        szCsvDt += serializeFollower(oFllwr, iNo++);
     }
-    
     return writeEncodedFile(szTgtDir + "/" + szFN_LSTS, szCsvDt);
 }
 
@@ -490,6 +427,29 @@ bool FileManager::saveActionHistory(const QList<ActionRecord>& lstHstry) {
     
     return writeEncodedFile(szCnfgDirPth + "/" + szFN_ACTN_HSTRY, szCsvDt);
 }
+QString FileManager::serializeFollower(const TwitchFollower& oF, int iNo) {
+    QStringList lstGids;
+    for (int iGid : oF.groupIds) lstGids << QString::number(iGid);
+
+    QStringList lstFlwHist;
+    for (const auto& dt : oF.followHistory) lstFlwHist << dt.toString(Qt::ISODate);
+    
+    QStringList lstUnflwHist;
+    for (const auto& dt : oF.unfollowHistory) lstUnflwHist << dt.toString(Qt::ISODate);
+
+    return QString("%1,%2,%3,%4,%5,%6,%7,%8,%9,%10\n")
+            .arg(iNo)
+            .arg(escapeInternal(oF.nickname))
+            .arg(oF.userName)
+            .arg(oF.userLogin)
+            .arg(oF.userId)
+            .arg(lstGids.join("|"))
+            .arg(oF.followedAt.toString(Qt::ISODate))
+            .arg(lstFlwHist.join(";"))
+            .arg(lstUnflwHist.join(";"))
+            .arg(escapeInternal(oF.memo));
+}
+
 void FileManager::log(int id) {
     if (m_errorTable.contains(id)) {
         Logger::output("ERROR", m_errorTable[id]);

@@ -154,23 +154,20 @@ private:
     QString unescapeInternal(const QString& szEncoded);
 
     // CSV フォーマット規定（フォロワー情報）
-    static constexpr int iCOL_FLW_MIN      = 5; ///< フォロワー情報の必須列数 (No, ニックネーム, 表示名, ユーザ名, ID)
-    static constexpr int iCOL_FLW_FULL     = 10; ///< フォロワー情報の最大列数 (+グループ, 最新フォロー, 履歴x2, メモ)
-    static constexpr int iIDX_FLW_NICKNAME = 1; ///< 列インデックス: ニックネーム
-    static constexpr int iIDX_FLW_NAME     = 2; ///< 列インデックス: 表示名
-    static constexpr int iIDX_FLW_LOGIN    = 3; ///< 列インデックス: ユーザ名
-    static constexpr int iIDX_FLW_ID       = 4; ///< 列インデックス: ユーザID
-    static constexpr int iIDX_FLW_GRP_IDS  = 5; ///< 列インデックス: グループID
-    static constexpr int iIDX_FLW_FOLLOWED_AT = 6; ///< 列インデックス: 最新フォロー日時
-    static constexpr int iIDX_FLW_FOLLOW_HSTRY = 7; ///< 列インデックス: フォロー履歴 (セミコロン区切り)
-    static constexpr int iIDX_FLW_UNFOLLOW_HSTRY = 8; ///< 列インデックス: 解除履歴 (セミコロン区切り)
-    static constexpr int iIDX_FLW_MEMO     = 9; ///< 列インデックス: メモ (v2.0)
+    static constexpr int iCOL_FLW_MIN      = 5; ///< 必須列数
+    static constexpr int iCOL_FLW_FULL     = 10; ///< 最大列数
 
     // CSV フォーマット規定（グループ定義）
     static constexpr int iCOL_GRP_MIN      = 2; ///< グループ情報の必須列数 (ID, 名前)
-    static constexpr int iIDX_GRP_ID       = 0; ///< 列インデックス: グループID
-    static constexpr int iIDX_GRP_NAME     = 1; ///< 列インデックス: グループ名
 
+
+    /**
+     * @brief フォロワー情報を CSV 行文字列に変換する。
+     * @param oF 対象フォロワー。
+     * @param iNo 行番号。
+     * @return CSV 行文字列（改行含む）。
+     */
+    QString serializeFollower(const TwitchFollower& oF, int iNo);
 
     // CSV 見出し文字列
     static constexpr const char* szHDR_FLW = "No,ニックネーム,表示名,ユーザ名,ユーザID,グループID,最新フォロー日時,フォロー履歴,フォロー削除履歴,メモ\n";
