@@ -87,7 +87,7 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
             // インデックスに依存せず、0列目の UserRole から ID を取得
             QStandardItem *pItm = pMdlFllwr->item(iRow, 0);
             if (pItm) {
-              QString szUsrId = pItm->data(Qt::UserRole).toString();
+              QString szUsrId = pItm->data(ROLE_USER_ID).toString();
               if (!szUsrId.isEmpty()) {
                 lstTargetIds << szUsrId;
               }
@@ -147,7 +147,7 @@ void MainWindow::onFollowerListContextMenu(const QPoint &pos) {
   QStringList lstTargetIds;
   for (int iRow : setSrcRows) {
     // インデックスに依存せず、0列目の UserRole から ID を取得
-    lstTargetIds << pMdlFllwr->item(iRow, 0)->data(Qt::UserRole).toString();
+    lstTargetIds << pMdlFllwr->item(iRow, 0)->data(ROLE_USER_ID).toString();
   }
 
   QMenu oMenu(this);
@@ -190,7 +190,7 @@ void MainWindow::onFollowerListContextMenu(const QPoint &pos) {
   if (lstTargetIds.size() == 1) {
     int iRow = *setSrcRows.begin();
     // インデックスに依存せず、0列目の UserRole + 1 から所属グループ ID を取得
-    QString szGidsRaw = pMdlFllwr->item(iRow, 0)->data(Qt::UserRole + 1).toString();
+    QString szGidsRaw = pMdlFllwr->item(iRow, 0)->data(ROLE_GROUP_IDS).toString();
     if (!szGidsRaw.isEmpty()) {
       QMenu *pSubRem = oMenu.addMenu("グループから解除");
       QStringList lstGids = szGidsRaw.split(",", Qt::SkipEmptyParts);
@@ -233,7 +233,7 @@ void MainWindow::setupUiExtra() {
 
   pProxyMdl = new QSortFilterProxyModel(this);
   pProxyMdl->setSourceModel(pMdlFllwr);
-  pProxyMdl->setSortRole(Qt::UserRole); // UserRole に基づいてソート
+  pProxyMdl->setSortRole(ROLE_SORT_DATA); // ROLE_SORT_DATA に基づいてソート
   pProxyMdl->setFilterCaseSensitivity(Qt::CaseInsensitive);
   pProxyMdl->setFilterKeyColumn(-1); // 全列を検索対象にする
 
@@ -334,7 +334,7 @@ void MainWindow::setupUiExtra() {
       QStandardItem *pItm = pMdlFllwr->itemFromIndex(idx);
       if (!pItm) return;
       
-      QString szUsrId = pMdlFllwr->item(idx.row(), 0)->data(Qt::UserRole).toString();
+      QString szUsrId = pMdlFllwr->item(idx.row(), 0)->data(ROLE_USER_ID).toString();
       
       if (idx.column() == COL_MEMO) {
           emit followerMemoChanged(szUsrId, pItm->text());
@@ -374,8 +374,6 @@ void MainWindow::setFollowers(const QList<TwitchFollower> &lstFllwrs,
     QList<QStandardItem *> lstItems;
     QStandardItem *pItmNickname = new QStandardItem(oFllwr.nickname);
     pItmNickname->setEditable(true);
-    // 第0列の UserRole に ID を格納（インデックス依存からの脱却用）
-    pItmNickname->setData(oFllwr.userId, Qt::UserRole);
     lstItems << pItmNickname;
 
     QStandardItem *pItmDisplayName = new QStandardItem(oFllwr.userName);
@@ -383,8 +381,11 @@ void MainWindow::setFollowers(const QList<TwitchFollower> &lstFllwrs,
     lstItems << pItmDisplayName;
 
     QStandardItem *pItmUserLogin = new QStandardItem(oFllwr.userLogin);
+    pItmUserLogin->setEditable(false);
     lstItems << pItmUserLogin;
+
     QStandardItem *pItmUserId = new QStandardItem(oFllwr.userId);
+    pItmUserId->setEditable(false);
     lstItems << pItmUserId;
 
     // チャンネルURLを動的に生成し、リンクスタイルを適用
@@ -394,13 +395,8 @@ void MainWindow::setFollowers(const QList<TwitchFollower> &lstFllwrs,
     QFont fontUrl = pItmUrl->font();
     fontUrl.setUnderline(true);
     pItmUrl->setFont(fontUrl);
-    lstItems << pItmUrl;
-
-    // 読み取り専用設定（ニックネームとメモ以外）
-    pItmDisplayName->setEditable(false);
-    pItmUserLogin->setEditable(false);
-    pItmUserId->setEditable(false);
     pItmUrl->setEditable(false);
+    lstItems << pItmUrl;
 
     // グループIDを名前に変換
     QStringList lstGNms;
@@ -413,8 +409,6 @@ void MainWindow::setFollowers(const QList<TwitchFollower> &lstFllwrs,
       }
       lstGidsStr << QString::number(iGid);
     }
-    // 第0列の UserRole+1 にグループ ID 文字列を格納（脱インデックス）
-    pItmNickname->setData(lstGidsStr.join(","), Qt::UserRole + 1);
 
     QStandardItem *pItmGrp = new QStandardItem(lstGNms.join(", "));
     pItmGrp->setEditable(false);
@@ -430,18 +424,29 @@ void MainWindow::setFollowers(const QList<TwitchFollower> &lstFllwrs,
     QString szUnflwAt = oFllwr.unfollowHistory.isEmpty() ? "" : oFllwr.unfollowHistory.last().toString("yyyy-MM-dd HH:mm");
     QStandardItem *pItmUnflw = new QStandardItem(szUnflwAt);
     pItmUnflw->setEditable(false);
-    pItmUnflw->setData(oFllwr.unfollowHistory.isEmpty() ? QDateTime() : oFllwr.unfollowHistory.last(), Qt::UserRole); // ソート用
     lstItems << pItmUnflw;
 
     // メモ (v2.0)
     QStandardItem *pItmMemo = new QStandardItem(oFllwr.memo);
     pItmMemo->setEditable(true);
-    pItmMemo->setData(oFllwr.memo, Qt::UserRole); // ソート用
     lstItems << pItmMemo;
 
-    // ソート用データの追加設定 (表示名、日付など)
-    pItmDisplayName->setData(oFllwr.userName, Qt::UserRole + 2); // ソート用
-    pItmFlw->setData(oFllwr.followHistory.isEmpty() ? QDateTime() : oFllwr.followHistory.first(), Qt::UserRole);
+    // --- メタデータとソート用データの設定 ---
+
+    // 第0列にメタデータを格納（ID、グループリスト）
+    pItmNickname->setData(oFllwr.userId, ROLE_USER_ID);
+    pItmNickname->setData(lstGidsStr.join(","), ROLE_GROUP_IDS);
+
+    // すべての列にソート用データを設定 (ROLE_SORT_DATA)
+    pItmNickname->setData(oFllwr.nickname, ROLE_SORT_DATA);
+    pItmDisplayName->setData(oFllwr.userName, ROLE_SORT_DATA);
+    pItmUserLogin->setData(oFllwr.userLogin, ROLE_SORT_DATA);
+    pItmUserId->setData(oFllwr.userId, ROLE_SORT_DATA);
+    pItmUrl->setData(pItmUrl->text(), ROLE_SORT_DATA);
+    pItmGrp->setData(pItmGrp->text(), ROLE_SORT_DATA);
+    pItmFlw->setData(oFllwr.followHistory.isEmpty() ? QDateTime() : oFllwr.followHistory.first(), ROLE_SORT_DATA);
+    pItmUnflw->setData(oFllwr.unfollowHistory.isEmpty() ? QDateTime() : oFllwr.unfollowHistory.last(), ROLE_SORT_DATA);
+    pItmMemo->setData(oFllwr.memo, ROLE_SORT_DATA);
 
     // ツールチップに全履歴を表示 (HTML テーブル形式)
     QString szTooltip = "<html><head><style>th, td { padding-right: 15px; }</style></head><body>";

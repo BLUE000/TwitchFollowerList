@@ -44,6 +44,16 @@ public:
   static const int COL_MEMO = 8;
 
   /**
+   * @enum FollowerRole
+   * @brief フォロワーリストの各アイテムに格納するデータの役割（ロール）を定義。
+   */
+  enum FollowerRole {
+    ROLE_USER_ID = Qt::UserRole + 10,    ///< ユーザー ID (QString)
+    ROLE_GROUP_IDS = Qt::UserRole + 11,  ///< 所属グループ ID リスト (QString, カンマ区切り)
+    ROLE_SORT_DATA = Qt::UserRole       ///< ソート用データ。Proxy モデルがこれを参照する。
+  };
+
+  /**
    * @brief コンストラクタ。
    * @param pParent 親オブジェクト。
    */
