@@ -19,8 +19,8 @@
 プログラムの知識がなくても大丈夫です！以下のステップで始められます。
 
 1. **ダウンロード**: 
-    - [FollowerList_v2.0_full.zip](https://github.com/BLUE000/TwitchFollowerList/releases/download/v2.0/FollowerList_v2.0_full.zip) (新規・一括)
-    - [FollowerList_v2.0_update.zip](https://github.com/BLUE000/TwitchFollowerList/releases/download/v2.0/FollowerList_v2.0_update.zip) (旧バージョンからの更新用)
+    - [FollowerList_v2.5_full.zip](https://github.com/BLUE000/TwitchFollowerList/releases/download/v2.5/FollowerList_v2.5_full.zip) (新規・一括)
+    - [FollowerList_v2.5_update.zip](https://github.com/BLUE000/TwitchFollowerList/releases/download/v2.5/FollowerList_v2.5_update.zip) (旧バージョンからの更新用)
 2. **準備**: ダウンロードした ZIP ファイルを右クリックして「すべて展開」を選び、フォルダを取り出します。
 3. **実行**: フォルダの中にある `FollowerList.exe` をダブルクリックして起動します。
 4. **ログイン**: 画面上の `Twitch Login` ボタンを押すとブラウザが開きます。Twitch でアクセスを許可してください。
@@ -32,7 +32,7 @@
 
 既に旧バージョン（v1.0等）をお使いの方は、以下の手順でデータを引き継いだままアップデートできます。
 
-1. **ZIPをダウンロード**: 最新の `FollowerList_v2.0_update.zip` をダウンロードして展開します。
+1. **ZIPをダウンロード**: 最新の `FollowerList_v2.5_update.zip` をダウンロードして展開します。
 2. **ファイルを上書き**: 展開されたフォルダ内にある以下のファイルを、現在お使いのプログラムフォルダへ上書きコピーします。
     - `FollowerList.exe`
     - `libTransCipher.dll`
