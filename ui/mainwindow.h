@@ -33,14 +33,15 @@ public:
   static const int INVALID_ID = -999; ///< 無効な ID を示す定数
 
   // 列インデックスの定義
-  static const int COL_DISPLAY_NAME = 0;
-  static const int COL_USER_LOGIN = 1;
-  static const int COL_USER_ID = 2;
-  static const int COL_CHANNEL_URL = 3;
-  static const int COL_GROUPS = 4;
-  static const int COL_FOLLOWED_AT = 5;
-  static const int COL_UNFOLLOWED_AT = 6;
-  static const int COL_MEMO = 7;
+  static const int COL_NICKNAME = 0;
+  static const int COL_DISPLAY_NAME = 1;
+  static const int COL_USER_LOGIN = 2;
+  static const int COL_USER_ID = 3;
+  static const int COL_CHANNEL_URL = 4;
+  static const int COL_GROUPS = 5;
+  static const int COL_FOLLOWED_AT = 6;
+  static const int COL_UNFOLLOWED_AT = 7;
+  static const int COL_MEMO = 8;
 
   /**
    * @brief コンストラクタ。
@@ -155,6 +156,13 @@ signals:
    * @param szMemo 新しいメモ。
    */
   void followerMemoChanged(const QString &szUsrId, const QString &szMemo);
+
+  /**
+   * @brief フォロワーのニックネームが変更された際のシグナル。
+   * @param szUsrId ユーザー ID。
+   * @param szNickname 新しいニックネーム。
+   */
+  void followerNicknameChanged(const QString &szUsrId, const QString &szNickname);
 
 private slots:
   void onLoginButtonClicked();

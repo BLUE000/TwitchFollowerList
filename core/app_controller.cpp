@@ -44,6 +44,7 @@ void AppController::initialize() {
     connect(pView, &MainWindow::groupSelected, this, &AppController::handleGroupSelected);
     connect(pView, &MainWindow::outputRequested, this, &AppController::handleOutputRequested);
     connect(pView, &MainWindow::followerMemoChanged, this, &AppController::handleFollowerMemoChanged);
+    connect(pView, &MainWindow::followerNicknameChanged, this, &AppController::handleFollowerNicknameChanged);
 
     connect(pAuthntctr, &TwitchAuthenticator::authCompleted, this, &AppController::handleAuthCompleted);
     connect(pApiClient, &TwitchApiClient::currentUserFetched, this, &AppController::handleCurrentUserFetched);
@@ -522,7 +523,7 @@ void AppController::handleOutputRequested() {
             oOut.setEncoding(QStringConverter::Utf8);
             oOut.setGenerateByteOrderMark(true); // Excel 用に BOM を付与
 
-            oOut << "表示名,ユーザー名,ユーザーID,チャンネルURL,グループ,メモ\n";
+            oOut << "ニックネーム,表示名,ユーザー名,ユーザーID,チャンネルURL,グループ,メモ\n";
             for (const auto& oF : lstSub) {
                 QStringList lstGNms;
                 for (int iGid : oF.groupIds) {
@@ -536,8 +537,8 @@ void AppController::handleOutputRequested() {
                 QString szMemo = oF.memo;
                 szMemo.replace("\"", "\"\"");
 
-                oOut << QString("\"%1\",\"%2\",\"'%3\",\"%4\",\"%5\",\"%6\"\n")
-                            .arg(oF.userName, oF.userLogin, oF.userId, szUrl, szGNms, szMemo);
+                oOut << QString("\"%1\",\"%2\",\"%3\",\"'%4\",\"%5\",\"%6\",\"%7\"\n")
+                            .arg(oF.nickname, oF.userName, oF.userLogin, oF.userId, szUrl, szGNms, szMemo);
             }
             oFile.close();
         }
@@ -719,6 +720,42 @@ void AppController::handleFollowerMemoChanged(const QString& szUsrId, const QStr
 
     if (bChanged) {
         // メモは Undo 履歴に含めず、即時保存する仕様
+        saveAllState();
+    }
+}
+/**
+ * @brief ニックネーム変更要求をハンドルする。
+ * @param szUsrId 対象のユーザー ID。
+ * @param szNickname 新しいニックネーム。
+ */
+void AppController::handleFollowerNicknameChanged(const QString& szUsrId, const QString& szNickname) {
+    bool bChanged = false;
+    
+    // 現在のフォロワーリストから検索して更新
+    for (auto& oF : lstCrntFllwrs) {
+        if (oF.userId == szUsrId) {
+            if (oF.nickname != szNickname) {
+                oF.nickname = szNickname;
+                bChanged = true;
+            }
+            break;
+        }
+    }
+    
+    // 削除済みリストもチェック
+    if (!bChanged) {
+        for (auto& oF : lstCrntDltdUsrs) {
+            if (oF.userId == szUsrId) {
+                if (oF.nickname != szNickname) {
+                    oF.nickname = szNickname;
+                    bChanged = true;
+                }
+                break;
+            }
+        }
+    }
+ 
+    if (bChanged) {
         saveAllState();
     }
 }

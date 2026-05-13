@@ -229,7 +229,7 @@ void MainWindow::onFollowerListContextMenu(const QPoint &pos) {
 void MainWindow::setupUiExtra() {
   pMdlFllwr = new QStandardItemModel(this);
   pMdlFllwr->setHorizontalHeaderLabels(
-      {"表示名", "ユーザー名", "ID", "チャンネルURL", "グループ", "フォロー開始日", "フォロー削除日", "メモ"});
+      {"ニックネーム", "表示名", "ユーザー名", "ID", "チャンネルURL", "グループ", "フォロー開始日", "フォロー削除日", "メモ"});
 
   pProxyMdl = new QSortFilterProxyModel(this);
   pProxyMdl->setSourceModel(pMdlFllwr);
@@ -329,15 +329,17 @@ void MainWindow::setupUiExtra() {
   connect(pUi->searchLineEdit, &QLineEdit::textChanged, this,
           &MainWindow::onSearchTextChanged);
 
-  // メモ編集の検知 (v2.0)
+  // 編集の検知 (v2.0, Nickname)
   connect(pMdlFllwr, &QStandardItemModel::dataChanged, [this](const QModelIndex &idx) {
+      QStandardItem *pItm = pMdlFllwr->itemFromIndex(idx);
+      if (!pItm) return;
+      
+      QString szUsrId = pMdlFllwr->item(idx.row(), 0)->data(Qt::UserRole).toString();
+      
       if (idx.column() == COL_MEMO) {
-          QStandardItem *pItm = pMdlFllwr->itemFromIndex(idx);
-          if (pItm) {
-              QString szUsrId = pMdlFllwr->item(idx.row(), 0)->data(Qt::UserRole).toString();
-              QString szMemo = pItm->text();
-              emit followerMemoChanged(szUsrId, szMemo);
-          }
+          emit followerMemoChanged(szUsrId, pItm->text());
+      } else if (idx.column() == COL_NICKNAME) {
+          emit followerNicknameChanged(szUsrId, pItm->text());
       }
   });
 }
@@ -370,13 +372,20 @@ void MainWindow::setFollowers(const QList<TwitchFollower> &lstFllwrs,
   pMdlFllwr->setRowCount(0);
   for (const auto &oFllwr : lstFllwrs) {
     QList<QStandardItem *> lstItems;
+    QStandardItem *pItmNickname = new QStandardItem(oFllwr.nickname);
+    pItmNickname->setEditable(true);
+    // 第0列の UserRole に ID を格納（インデックス依存からの脱却用）
+    pItmNickname->setData(oFllwr.userId, Qt::UserRole);
+    lstItems << pItmNickname;
+
     QStandardItem *pItmDisplayName = new QStandardItem(oFllwr.userName);
-    // 第0列の UserRole に ID を格納（インデックス依存からの脱却）
-    pItmDisplayName->setData(oFllwr.userId, Qt::UserRole);
+    pItmDisplayName->setEditable(false);
     lstItems << pItmDisplayName;
 
-    lstItems << new QStandardItem(oFllwr.userLogin);
-    lstItems << new QStandardItem(oFllwr.userId);
+    QStandardItem *pItmUserLogin = new QStandardItem(oFllwr.userLogin);
+    lstItems << pItmUserLogin;
+    QStandardItem *pItmUserId = new QStandardItem(oFllwr.userId);
+    lstItems << pItmUserId;
 
     // チャンネルURLを動的に生成し、リンクスタイルを適用
     QStandardItem *pItmUrl =
@@ -387,10 +396,11 @@ void MainWindow::setFollowers(const QList<TwitchFollower> &lstFllwrs,
     pItmUrl->setFont(fontUrl);
     lstItems << pItmUrl;
 
-    // 全アイテムを読み取り専用に設定
-    for (QStandardItem *pItm : lstItems) {
-      pItm->setEditable(false);
-    }
+    // 読み取り専用設定（ニックネームとメモ以外）
+    pItmDisplayName->setEditable(false);
+    pItmUserLogin->setEditable(false);
+    pItmUserId->setEditable(false);
+    pItmUrl->setEditable(false);
 
     // グループIDを名前に変換
     QStringList lstGNms;
@@ -404,7 +414,7 @@ void MainWindow::setFollowers(const QList<TwitchFollower> &lstFllwrs,
       lstGidsStr << QString::number(iGid);
     }
     // 第0列の UserRole+1 にグループ ID 文字列を格納（脱インデックス）
-    pItmDisplayName->setData(lstGidsStr.join(","), Qt::UserRole + 1);
+    pItmNickname->setData(lstGidsStr.join(","), Qt::UserRole + 1);
 
     QStandardItem *pItmGrp = new QStandardItem(lstGNms.join(", "));
     pItmGrp->setEditable(false);

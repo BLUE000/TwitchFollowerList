@@ -154,16 +154,17 @@ private:
     QString unescapeInternal(const QString& szEncoded);
 
     // CSV フォーマット規定（フォロワー情報）
-    static constexpr int iCOL_FLW_MIN      = 4; ///< フォロワー情報の必須列数 (No, 表示名, ユーザ名, ID)
-    static constexpr int iCOL_FLW_FULL     = 9; ///< フォロワー情報の最大列数 (グループ, 最新フォロー, 履歴x2, メモ)
-    static constexpr int iIDX_FLW_NAME     = 1; ///< 列インデックス: 表示名
-    static constexpr int iIDX_FLW_LOGIN    = 2; ///< 列インデックス: ユーザ名
-    static constexpr int iIDX_FLW_ID       = 3; ///< 列インデックス: ユーザID
-    static constexpr int iIDX_FLW_GRP_IDS  = 4; ///< 列インデックス: グループID
-    static constexpr int iIDX_FLW_FOLLOWED_AT = 5; ///< 列インデックス: 最新フォロー日時
-    static constexpr int iIDX_FLW_FOLLOW_HSTRY = 6; ///< 列インデックス: フォロー履歴 (セミコロン区切り)
-    static constexpr int iIDX_FLW_UNFOLLOW_HSTRY = 7; ///< 列インデックス: 解除履歴 (セミコロン区切り)
-    static constexpr int iIDX_FLW_MEMO     = 8; ///< 列インデックス: メモ (v2.0)
+    static constexpr int iCOL_FLW_MIN      = 5; ///< フォロワー情報の必須列数 (No, ニックネーム, 表示名, ユーザ名, ID)
+    static constexpr int iCOL_FLW_FULL     = 10; ///< フォロワー情報の最大列数 (+グループ, 最新フォロー, 履歴x2, メモ)
+    static constexpr int iIDX_FLW_NICKNAME = 1; ///< 列インデックス: ニックネーム
+    static constexpr int iIDX_FLW_NAME     = 2; ///< 列インデックス: 表示名
+    static constexpr int iIDX_FLW_LOGIN    = 3; ///< 列インデックス: ユーザ名
+    static constexpr int iIDX_FLW_ID       = 4; ///< 列インデックス: ユーザID
+    static constexpr int iIDX_FLW_GRP_IDS  = 5; ///< 列インデックス: グループID
+    static constexpr int iIDX_FLW_FOLLOWED_AT = 6; ///< 列インデックス: 最新フォロー日時
+    static constexpr int iIDX_FLW_FOLLOW_HSTRY = 7; ///< 列インデックス: フォロー履歴 (セミコロン区切り)
+    static constexpr int iIDX_FLW_UNFOLLOW_HSTRY = 8; ///< 列インデックス: 解除履歴 (セミコロン区切り)
+    static constexpr int iIDX_FLW_MEMO     = 9; ///< 列インデックス: メモ (v2.0)
 
     // CSV フォーマット規定（グループ定義）
     static constexpr int iCOL_GRP_MIN      = 2; ///< グループ情報の必須列数 (ID, 名前)
@@ -172,7 +173,7 @@ private:
 
 
     // CSV 見出し文字列
-    static constexpr const char* szHDR_FLW = "No,表示名,ユーザ名,ユーザID,グループID,最新フォロー日時,フォロー履歴,フォロー削除履歴,メモ\n";
+    static constexpr const char* szHDR_FLW = "No,ニックネーム,表示名,ユーザ名,ユーザID,グループID,最新フォロー日時,フォロー履歴,フォロー削除履歴,メモ\n";
     static constexpr const char* szHDR_GRP = "グループID,グループ名\n";
 
     // ファイル名規定

@@ -109,6 +109,7 @@ public slots:
    * @param szNewNm 新しいグループ名。
    */
   void handleFollowerMemoChanged(const QString &szUsrId, const QString &szMemo);
+  void handleFollowerNicknameChanged(const QString &szUsrId, const QString &szNickname);
   void handle_group_renamed(int iGrpId, const QString &szNewNm);
 
   /**

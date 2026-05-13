@@ -8,6 +8,7 @@
 // Twitch APIから取得したフォロワー情報を保持する構造体
 struct TwitchFollower {
   QString userId;
+  QString nickname;   // ユーザー設定のニックネーム
   QString userName;
   QString userLogin;
   QDateTime followedAt;      // Twitch APIから取得した最新のフォロー日時

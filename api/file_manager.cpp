@@ -211,6 +211,7 @@ bool FileManager::loadAllListDat(QList<TwitchFollower>& lstFllwrs) {
             TwitchFollower oFllwr;
             // ヘッダーマップに基づいてデータを取得
             if (mapHdr.contains("ユーザID")) oFllwr.userId = lstPrts.value(mapHdr["ユーザID"]);
+            if (mapHdr.contains("ニックネーム")) oFllwr.nickname = unescapeInternal(lstPrts.value(mapHdr["ニックネーム"]));
             if (mapHdr.contains("表示名")) oFllwr.userName = lstPrts.value(mapHdr["表示名"]);
             if (mapHdr.contains("ユーザ名")) oFllwr.userLogin = lstPrts.value(mapHdr["ユーザ名"]);
             
@@ -306,6 +307,7 @@ bool FileManager::loadDeletedUserDat(QList<TwitchFollower>& lstDltdUsrs) {
             
             TwitchFollower oFllwr;
             if (mapHdr.contains("ユーザID")) oFllwr.userId = lstPrts.value(mapHdr["ユーザID"]);
+            if (mapHdr.contains("ニックネーム")) oFllwr.nickname = unescapeInternal(lstPrts.value(mapHdr["ニックネーム"]));
             if (mapHdr.contains("表示名")) oFllwr.userName = lstPrts.value(mapHdr["表示名"]);
             if (mapHdr.contains("ユーザ名")) oFllwr.userLogin = lstPrts.value(mapHdr["ユーザ名"]);
             
@@ -361,8 +363,9 @@ bool FileManager::saveDeletedUserDat(const QList<TwitchFollower>& lstDltdUsrs) {
         QStringList lstUnflwHist;
         for (const auto& dt : oFllwr.unfollowHistory) lstUnflwHist << dt.toString(Qt::ISODate);
 
-        szCsv += QString("%1,%2,%3,%4,%5,%6,%7,%8,%9\n")
+        szCsv += QString("%1,%2,%3,%4,%5,%6,%7,%8,%9,%10\n")
                  .arg(i + 1)
+                 .arg(escapeInternal(oFllwr.nickname))
                  .arg(oFllwr.userName)
                  .arg(oFllwr.userLogin)
                  .arg(oFllwr.userId)
@@ -396,8 +399,9 @@ bool FileManager::saveAllListDat(const QList<TwitchFollower>& lstFllwrs) {
         QStringList lstUnflwHist;
         for (const auto& dt : oFllwr.unfollowHistory) lstUnflwHist << dt.toString(Qt::ISODate);
         
-        szCsvDt += QString("%1,%2,%3,%4,%5,%6,%7,%8,%9\n")
+        szCsvDt += QString("%1,%2,%3,%4,%5,%6,%7,%8,%9,%10\n")
                    .arg(iNo++)
+                   .arg(escapeInternal(oFllwr.nickname))
                    .arg(oFllwr.userName)
                    .arg(oFllwr.userLogin)
                    .arg(oFllwr.userId)
@@ -451,8 +455,9 @@ bool FileManager::saveGroupListsDat(const QString& szGrpNm, const QList<TwitchFo
         QStringList lstUnflwHist;
         for (const auto& dt : oFllwr.unfollowHistory) lstUnflwHist << dt.toString(Qt::ISODate);
         
-        szCsvDt += QString("%1,%2,%3,%4,%5,%6,%7,%8,%9\n")
+        szCsvDt += QString("%1,%2,%3,%4,%5,%6,%7,%8,%9,%10\n")
                    .arg(iNo++)
+                   .arg(escapeInternal(oFllwr.nickname))
                    .arg(oFllwr.userName)
                    .arg(oFllwr.userLogin)
                    .arg(oFllwr.userId)
